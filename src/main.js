@@ -735,6 +735,13 @@ function bindEvents() {
   document.getElementById('btn-share')?.addEventListener('click', () => {
     document.getElementById('page-results')?.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!currentStock?.symbol) return;
+    const shareUrl = `${location.origin}${location.pathname}?s=${currentStock.symbol}`;
+    if (navigator.share) {
+      navigator.share({ url: shareUrl, title: currentStock.symbol });
+    } else {
+      navigator.clipboard?.writeText(shareUrl).then(() => showNotification('Link copied!'));
+    }
   });
 
   // Chart ranges
