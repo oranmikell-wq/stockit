@@ -211,6 +211,7 @@ async function fetchFMPFundamentals(symbol) {
       returnOnEquity:          metrics?.returnOnEquityTTM ?? null,
       currentRatio:            metrics?.currentRatioTTM  ?? null,
       freeCashflow:            metrics?.freeCashFlowTTM  ?? null,
+      operatingMargins:        metrics?.operatingProfitMarginTTM ?? null, // decimal (0–1), same format as Yahoo v10
       targetMeanPrice:         targetRaw?.targetConsensus  ?? null,
       targetHighPrice:         targetRaw?.targetHigh        ?? null,
       targetLowPrice:          targetRaw?.targetLow         ?? null,
@@ -281,7 +282,7 @@ async function fetchFinnhubFundamentals(symbol) {
   const beta = m.beta ?? null;
   const divYield = m.dividendYieldIndicatedAnnual != null ? m.dividendYieldIndicatedAnnual / 100 : null;
   const marketCap = profileRaw?.marketCapitalization != null ? profileRaw.marketCapitalization * 1e6 : null;
-  const epsGrowth = m.epsGrowth3Y ?? m.epsBasicExclExtraItemsTTM ?? null;
+  const epsGrowth = m.epsGrowth3Y ?? null; // epsBasicExclExtraItemsTTM is an absolute EPS value, not a growth rate
   const revGrowth = m.revenueGrowthTTMYoy ?? m.revenueGrowth3Y ?? null;
   // Note: Finnhub metric keys use '/' not '_' as separator
   const debtEq    = m['longTermDebt/equityAnnual'] ?? m['totalDebt/totalEquityAnnual'] ?? null;
@@ -475,6 +476,8 @@ function _v7ToV10(q) {
     defaultKeyStatistics: {
       priceToSalesTrailing12Months: q.trailingPriceToSales ?? null,
       heldPercentInstitutions:      q.heldPercentInstitutions ?? null,
+      heldPercentInsiders:          q.heldPercentInsiders ?? null,
+      shortPercentOfFloat:          q.shortPercentOfFloat ?? null,
       pegRatio:                     q.pegRatio ?? null,
     },
     financialData: {
@@ -526,7 +529,8 @@ export async function yahooFundamentals(symbol) {
       'earningsTimestampStart','earningsTimestampEnd',
       'earningsGrowth','revenueGrowth','debtToEquity',
       'returnOnEquity','currentRatio','freeCashflow',
-      'heldPercentInstitutions','pegRatio','sector','industry','longName','shortName',
+      'heldPercentInstitutions','heldPercentInsiders','shortPercentOfFloat',
+      'pegRatio','sector','industry','longName','shortName',
     ].join(',');
     const raw7 = await fetchProxy(
       `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}&fields=${fields}`

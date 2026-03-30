@@ -50,7 +50,7 @@ export function cacheGetStale(symbol) {
 
 export function fundGet(symbol) {
   try {
-    const raw = localStorage.getItem(`bon-fund2-${symbol}`);
+    const raw = localStorage.getItem(`bon-fund3-${symbol}`);
     if (!raw) return null;
     const { data, ts } = JSON.parse(raw);
     if (Date.now() - ts < FUND_CACHE_TTL) return data;
@@ -60,6 +60,6 @@ export function fundGet(symbol) {
 
 export function fundSet(symbol, data) {
   try {
-    localStorage.setItem(`bon-fund2-${symbol}`, JSON.stringify({ data, ts: Date.now() }));
+    localStorage.setItem(`bon-fund3-${symbol}`, JSON.stringify({ data, ts: Date.now() }));
   } catch {}
 }
