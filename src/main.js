@@ -270,7 +270,7 @@ function navigateTo(page, symbol = null) {
   _navigateTo(page, symbol, {
     loadResults,
   });
-  updateHash(page, symbol);
+  updateURLParam(page, symbol);
   if (page === 'home') {
     renderHomeWatchlist();
     // Re-render Top Picks if cache was invalidated (e.g. after visiting speedometer)
@@ -648,29 +648,22 @@ function doSearch(query) {
 }
 
 // ── URL hash + param (?s=AAPL  or  #market / #about / #results:AAPL) ──
-function updateHash(page, symbol = null) {
-  const hash = (page === 'results' && symbol) ? `#results:${symbol.toUpperCase()}`
-             : (page === 'home')               ? ''
-             :                                   `#${page}`;
-  history.replaceState(null, '', hash || window.location.pathname + window.location.search);
+function updateURLParam(page, symbol = null) {
+  let url = window.location.pathname;
+  if (page === 'results' && symbol) {
+    url += `?s=${symbol.toUpperCase()}`;
+  } else if (page !== 'home') {
+    url += `?p=${page}`;
+  }
+  history.replaceState(null, '', url);
 }
 
 function checkURLParam() {
-  // ?s=AAPL — legacy share links
   const params = new URLSearchParams(window.location.search);
   const s = params.get('s');
   if (s) { navigateTo('results', s.toUpperCase()); return; }
-
-  // Hash routing — restore page on refresh
-  const hash = window.location.hash; // e.g. "#market" or "#results:AAPL"
-  if (!hash || hash === '#home') return;
-  if (hash.startsWith('#results:')) {
-    const sym = hash.slice('#results:'.length).toUpperCase();
-    if (sym) navigateTo('results', sym);
-  } else {
-    const page = hash.slice(1); // strip '#'
-    if (['market', 'about', 'compare'].includes(page)) navigateTo(page);
-  }
+  const p = params.get('p');
+  if (p && ['market', 'about', 'compare'].includes(p)) navigateTo(p);
 }
 
 // ── Bind Events ────────────────────────────────────────
@@ -738,9 +731,9 @@ function bindEvents() {
     if (!currentStock?.symbol) return;
     const shareUrl = `${location.origin}${location.pathname}?s=${currentStock.symbol}`;
     if (navigator.share) {
-      navigator.share({ url: shareUrl, title: currentStock.symbol });
+      navigator.share({ url: shareUrl, title: currentStock.symbol }).catch(() => {});
     } else {
-      navigator.clipboard?.writeText(shareUrl).then(() => showNotification('Link copied!'));
+      navigator.clipboard?.writeText(shareUrl).then(() => showNotification('Link copied!')).catch(() => {});
     }
   });
 
