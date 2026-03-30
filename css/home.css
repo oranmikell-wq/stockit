@@ -1548,10 +1548,6 @@
 
 .mag7-section {
   margin-top: 20px;
-  padding: 0 16px 16px;
-  max-width: var(--content-max);
-  margin-left: auto;
-  margin-right: auto;
   width: 100%;
   box-sizing: border-box;
 }
@@ -1803,7 +1799,7 @@
 
 /* ── Responsive ── */
 @media (max-width: 560px) {
-  .mag7-section { padding: 0 8px 12px; }
+  .mag7-section { margin-top: 12px; }
   .mag7-card    { padding: 14px 12px 16px; }
   .mag7-wrap    { height: 190px; gap: 6px; }
   .mag7-dist-label { font-size: 9px; }
