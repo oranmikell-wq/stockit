@@ -725,9 +725,12 @@ function bindEvents() {
 
 
   // Scroll to top
-  document.getElementById('btn-share')?.addEventListener('click', () => {
+  document.getElementById('btn-scroll-top')?.addEventListener('click', () => {
     document.getElementById('page-results')?.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  document.getElementById('btn-share')?.addEventListener('click', () => {
     if (!currentStock?.symbol) return;
     const shareUrl = `${location.origin}${location.pathname}?s=${currentStock.symbol}`;
     if (navigator.share) {
