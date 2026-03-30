@@ -198,18 +198,66 @@ function buildChart(stocks) {
   return wrap;
 }
 
+// ── Market-close TTL ─────────────────────────────────────
+// Returns the UTC timestamp of the next 4 PM ET on a weekday.
+function nextMarketClose() {
+  const now = Date.now();
+  const nowDate = new Date(now);
+  // Approximate DST: EDT (UTC-4) Apr-Oct, EST (UTC-5) Nov-Mar
+  const m = nowDate.getUTCMonth() + 1; // 1-12
+  const etOffH = (m >= 3 && m <= 11) ? 4 : 5; // hours behind UTC
+
+  // Today 4 PM ET expressed in UTC
+  const etNow  = new Date(now - etOffH * 3_600_000);
+  let target   = Date.UTC(
+    etNow.getUTCFullYear(), etNow.getUTCMonth(), etNow.getUTCDate(),
+    16 + etOffH, 0, 0, 0   // 16:00 ET → 20:00 or 21:00 UTC
+  );
+
+  if (now >= target) target += 86_400_000; // already past → next day
+
+  // Skip Sat/Sun (check weekday in ET)
+  for (let i = 0; i < 3; i++) {
+    const dow = new Date(target - etOffH * 3_600_000).getUTCDay(); // 0=Sun 6=Sat
+    if      (dow === 6) target += 2 * 86_400_000;  // Sat → Mon
+    else if (dow === 0) target +=     86_400_000;   // Sun → Mon
+    else break;
+  }
+  return target;
+}
+
+// ── localStorage cache helpers ───────────────────────────
+function lsGet(key) {
+  try {
+    const raw = localStorage.getItem(`bon-mag7-${key}`);
+    if (!raw) return null;
+    const { stocks, fetchedAt, expiresAt } = JSON.parse(raw);
+    if (Date.now() < expiresAt && stocks?.length) return { stocks, fetchedAt };
+    return null; // expired
+  } catch { return null; }
+}
+
+function lsSet(key, stocks, fetchedAt) {
+  try {
+    localStorage.setItem(`bon-mag7-${key}`, JSON.stringify({
+      stocks, fetchedAt, expiresAt: nextMarketClose(),
+    }));
+  } catch {}
+}
+
 // ── Timestamp ────────────────────────────────────────────
 function timeAgo(ts) {
   const sec = Math.round((Date.now() - ts) / 1000);
-  if (sec < 60)  return `${sec}s ago`;
+  if (sec < 60)   return `${sec}s ago`;
   if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
-  return `${Math.floor(sec / 3600)}h ago`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+  return `${Math.floor(sec / 86400)}d ago`;
 }
 
 // ── State ────────────────────────────────────────────────
-const _cache    = {};   // key → { stocks, fetchedAt }
-let   _active   = 'mag7';
-let   _tsTimer  = null;
+const _mem    = {};   // in-session memory cache (avoids re-fetch on tab switch)
+let   _active = 'mag7';
+let   _tsTimer = null;
 
 async function switchSector(key, container) {
   _active = key;
@@ -218,20 +266,19 @@ async function switchSector(key, container) {
     btn.classList.toggle('active', btn.dataset.sector === key)
   );
 
-  const area      = container.querySelector('#mag7-chart-area');
-  const tsEl      = container.querySelector('.mag7-timestamp');
-  const sector    = SECTORS.find(s => s.key === key);
+  const area   = container.querySelector('#mag7-chart-area');
+  const tsEl   = container.querySelector('.mag7-timestamp');
+  const sector = SECTORS.find(s => s.key === key);
 
   const render = ({ stocks, fetchedAt }) => {
     area.innerHTML = '';
     area.appendChild(buildChart(stocks));
     if (tsEl) tsEl.textContent = `Updated ${timeAgo(fetchedAt)}`;
-
     clearInterval(_tsTimer);
     _tsTimer = setInterval(() => {
-      if (tsEl && _cache[_active]) tsEl.textContent = `Updated ${timeAgo(_cache[_active].fetchedAt)}`;
+      const cached = _mem[_active];
+      if (tsEl && cached) tsEl.textContent = `Updated ${timeAgo(cached.fetchedAt)}`;
     }, 30_000);
-
     requestAnimationFrame(() => {
       area.querySelectorAll('.mag7-col').forEach((col, i) =>
         setTimeout(() => col.classList.add('mag7-animate'), i * 60)
@@ -239,18 +286,25 @@ async function switchSector(key, container) {
     });
   };
 
-  if (_cache[key]) { render(_cache[key]); return; }
+  // 1) In-session memory (instant)
+  if (_mem[key]) { render(_mem[key]); return; }
 
+  // 2) localStorage (still valid until next market close)
+  const ls = lsGet(key);
+  if (ls) { _mem[key] = ls; render(ls); return; }
+
+  // 3) Fetch fresh
   area.innerHTML = '';
   area.appendChild(buildSkeleton(sector.stocks.length));
   if (tsEl) tsEl.textContent = 'Loading…';
 
   const stocks    = await fetchStocksData(sector.stocks);
   const fetchedAt = Date.now();
-  _cache[key]     = { stocks, fetchedAt };
+  _mem[key] = { stocks, fetchedAt };
+  lsSet(key, stocks, fetchedAt);
 
   if (_active !== key) return;
-  render(_cache[key]);
+  render(_mem[key]);
 }
 
 // ── Public entry point ───────────────────────────────────
