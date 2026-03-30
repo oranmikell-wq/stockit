@@ -10,6 +10,8 @@ const MAG7 = [
   { sym: 'AMZN',  name: 'Amazon',    domain: 'amazon.com'    },
   { sym: 'META',  name: 'Meta',      domain: 'meta.com'      },
   { sym: 'TSLA',  name: 'Tesla',     domain: 'tesla.com'     },
+  { sym: 'SPY',   name: 'S&P 500',   domain: 'ssga.com'      },
+  { sym: 'QQQ',   name: 'Nasdaq 100',domain: 'invesco.com'   },
 ];
 
 function distColor(pct) {
