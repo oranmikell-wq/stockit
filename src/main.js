@@ -42,6 +42,7 @@ import { formatMarketCap } from './utils/formatters.js';
 let currentStock = null;
 let autoRefreshTimer = null;
 let activeLoadSymbol = null; // tracks the latest requested symbol to cancel stale loads
+let activeLoadId = 0;       // increments on every search; async ops check this before writing DOM
 let lastFullStockData  = null;   // stored for lang-change re-render
 let lastSummaryScored  = null;   // stored for lang-change re-render
 
@@ -432,6 +433,8 @@ async function loadForex() {
 // ── Results ────────────────────────────────────────────
 async function loadResults(symbol, isRefresh = false) {
   activeLoadSymbol = symbol;
+  const loadId = ++activeLoadId; // unique id for this load — all async callbacks check this
+  const isCurrent = () => activeLoadId === loadId;
   if (!isRefresh) {
     document.getElementById('results-loading').style.display = 'flex';
     document.getElementById('results-content').classList.add('hidden');
@@ -455,8 +458,8 @@ async function loadResults(symbol, isRefresh = false) {
 
     if (!data) throw new Error(t('stockNotFound'));
 
-    // If the user navigated to a different stock while this was loading, discard
-    if (activeLoadSymbol !== symbol) return;
+    // If the user searched a different stock while this was loading, discard
+    if (!isCurrent()) return;
 
     const scored = calcScore(data, h5, fullStockData?.indicators ?? {});
     currentStock = { ...data, ...scored };
@@ -529,12 +532,13 @@ async function loadResults(symbol, isRefresh = false) {
         data,
         fullStockData?.history ?? [],
         fullStockData?.indicators ?? null,
+        isCurrent,
       );
       initInfoButtons(document.getElementById('page-results'));
     }
 
     // AI Insight — runs async, silently hides itself on error
-    renderAIInsight(data.newsItems, symbol);
+    if (isCurrent()) renderAIInsight(data.newsItems, symbol, isCurrent);
 
     autoRefreshTimer = setInterval(() => loadResults(symbol, true), 15 * 60 * 1000);
 

@@ -33,7 +33,7 @@ export function renderNews(items) {
  * @param {Array}  newsItems  - same array passed to renderNews
  * @param {string} symbol     - stock ticker (for context)
  */
-export async function renderAIInsight(newsItems, symbol = '') {
+export async function renderAIInsight(newsItems, symbol = '', isCurrent = () => true) {
   const section = document.getElementById('ai-insight-section');
   const body    = document.getElementById('ai-insight-body');
   if (!section || !body) return;
@@ -83,6 +83,8 @@ export async function renderAIInsight(newsItems, symbol = '') {
     </div>`;
 
   const bullets = await getAINewsInsight(newsItems);
+
+  if (!isCurrent()) return; // user navigated away while AI was fetching
 
   if (!bullets?.length) {
     // Graceful hide — API failure or rate limit

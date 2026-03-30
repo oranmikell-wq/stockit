@@ -279,7 +279,7 @@ function sectionHTML(titleKey, familyScore, rows) {
  *   fundamentalEl → Growth + Valuation
  *   technicalEl   → Quality + Technical
  */
-export async function renderAnalysisTables(fundamentalEl, technicalEl, scored, data, history, indicators) {
+export async function renderAnalysisTables(fundamentalEl, technicalEl, scored, data, history, indicators, isCurrent = () => true) {
   if (!fundamentalEl && !technicalEl) return;
 
   const closes       = (history || []).map(h => h.value).filter(v => v != null && v > 0);
@@ -427,6 +427,7 @@ export async function renderAnalysisTables(fundamentalEl, technicalEl, scored, d
   // ── Async: fetch SPY ─────────────────────────────────────────
   try {
     const spyRaw    = await yahooChart('SPY', '1y', '1d');
+    if (!isCurrent()) return; // user navigated away while SPY was fetching
     const spyCloses = (spyRaw?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null && v > 0);
 
     if (spyCloses.length > 10 && closes.length > 10 && currentPrice != null) {
