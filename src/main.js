@@ -15,6 +15,7 @@ import { renderTopPicks } from './components/TopPicks.js';
 import { loadAAII }      from './components/AAIISentiment.js';
 import { loadMacroData, loadCryptoPrices, loadUpcomingEvents } from './components/MacroCrypto.js?v=7';
 import { renderMarketStatus, loadDXY, loadCommodities, loadSectorPerformance, loadMovers } from './components/MarketMovers.js?v=1';
+import { loadMag7Chart } from './components/Mag7Chart.js';
 import { initInfoButtons } from './components/InfoPopup.js';
 import { renderCompanyCard } from './components/CompanyCard.js';
 import { showAutocomplete, hideAutocomplete, selectAutocomplete, confirmAutocomplete, showRecentSearches, initAutocomplete } from './components/Autocomplete.js';
@@ -281,6 +282,7 @@ function navigateTo(page, symbol = null) {
     loadCryptoFearGreed();
     loadAAII();
     loadSectorPerformance();
+    loadMag7Chart();
     applyTranslations();
   }
 }
