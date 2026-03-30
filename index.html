@@ -298,8 +298,8 @@
   <!-- ===== MARKET ANALYSIS PAGE ===== -->
   <div id="page-market" class="page">
     <main class="market-main">
-      <!-- All three blocks side by side -->
-      <div class="market-blocks-row">
+      <!-- Grid: FNG spans 2 rows, Sector+AAII row 1, ATH row 2 -->
+      <div class="market-grid">
         <section class="fng-section">
           <h2 class="section-title" data-i18n="sectionFearGreed">Fear &amp; Greed</h2>
           <div class="fng-card">
@@ -325,13 +325,13 @@
             <div id="aaii-container" class="aaii-container"><div class="aaii-skeleton"></div></div>
           </div>
         </section>
-      </div>
 
-      <!-- Mag 7 — Distance from ATH -->
-      <div class="mag7-section">
-        <h2 class="section-title">DISTANCE FROM ATH</h2>
-        <div class="mag7-card">
-          <div id="mag7-container"><div class="mag7-wrap"></div></div>
+        <!-- Distance from ATH — below Sector+AAII only -->
+        <div class="mag7-section">
+          <h2 class="section-title">DISTANCE FROM ATH</h2>
+          <div class="mag7-card">
+            <div id="mag7-container"><div class="mag7-wrap"></div></div>
+          </div>
         </div>
       </div>
     </main>

@@ -1383,26 +1383,46 @@
   padding: 24px 20px 40px;
   box-sizing: border-box;
 }
-.market-blocks-row {
-  display: flex;
+.market-blocks-row { display: none; } /* replaced by market-grid */
+
+.market-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: auto auto;
   gap: 16px;
-  align-items: stretch;
 }
-.market-blocks-row .fng-section,
-.market-blocks-row .sector-section,
-.market-blocks-row .aaii-section {
-  flex: 1;
-  min-width: 0;
+.market-grid .fng-section {
+  grid-column: 1;
+  grid-row: 1 / 3;
   display: flex;
   flex-direction: column;
 }
-.market-blocks-row .fng-card,
-.market-blocks-row .sector-card,
-.market-blocks-row .aaii-card {
-  flex: 1;
+.market-grid .fng-card { flex: 1; }
+.market-grid .sector-section {
+  grid-column: 2;
+  grid-row: 1;
 }
-.market-blocks-row .fng-svg {
-  max-height: 160px;
+.market-grid .aaii-section {
+  grid-column: 3;
+  grid-row: 1;
+}
+.market-grid .mag7-section {
+  grid-column: 2 / 4;
+  grid-row: 2;
+  margin-top: 0;
+}
+@media (max-width: 600px) {
+  .market-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+  .market-grid .fng-section,
+  .market-grid .sector-section,
+  .market-grid .aaii-section,
+  .market-grid .mag7-section {
+    grid-column: 1;
+    grid-row: auto;
+  }
 }
 @media (max-width: 900px) {
   .market-blocks-row .fng-gauge-wrap { max-width: 180px; margin: 0 auto; }
