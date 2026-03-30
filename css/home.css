@@ -1566,7 +1566,39 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-3);
-  margin: 0 0 20px;
+  margin: 0 0 14px;
+}
+
+/* ── Sector tabs ── */
+.mag7-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.mag7-tab {
+  padding: 5px 13px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  white-space: nowrap;
+}
+
+.mag7-tab:hover {
+  border-color: var(--border-2);
+  color: var(--text);
+}
+
+.mag7-tab.active {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
 }
 
 /* ── Column layout ── */
