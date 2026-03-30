@@ -1388,11 +1388,24 @@
   gap: 16px;
   align-items: flex-start;
 }
-.market-blocks-row .fng-section,
-.market-blocks-row .sector-section,
-.market-blocks-row .aaii-section {
+.market-blocks-row .fng-section {
   flex: 1;
   min-width: 0;
+}
+.market-right-col {
+  flex: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.market-right-col .sector-section,
+.market-right-col .aaii-section {
+  width: 100%;
+}
+.market-right-col .mag7-section {
+  margin-top: 0;
+  width: 100%;
 }
 @media (max-width: 900px) {
   .market-blocks-row .fng-gauge-wrap { max-width: 180px; margin: 0 auto; }
@@ -1402,6 +1415,7 @@
   .market-blocks-row { flex-direction: column; }
   .market-blocks-row .fng-section { max-width: 480px; }
   .market-blocks-row .fng-card { padding: 10px 12px; }
+  .market-right-col { flex: none; width: 100%; }
 }
 
 /* ===== TOP PICKS SECTION ===== */
