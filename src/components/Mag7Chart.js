@@ -6,7 +6,7 @@ const MAG7 = [
   { sym: 'AAPL',  name: 'Apple',     domain: 'apple.com'     },
   { sym: 'MSFT',  name: 'Microsoft', domain: 'microsoft.com' },
   { sym: 'NVDA',  name: 'NVIDIA',    domain: 'nvidia.com'    },
-  { sym: 'GOOGL', name: 'Alphabet',  domain: 'abc.xyz'       },
+  { sym: 'GOOGL', name: 'Alphabet',  domain: 'google.com'    },
   { sym: 'AMZN',  name: 'Amazon',    domain: 'amazon.com'    },
   { sym: 'META',  name: 'Meta',      domain: 'meta.com'      },
   { sym: 'TSLA',  name: 'Tesla',     domain: 'tesla.com'     },
