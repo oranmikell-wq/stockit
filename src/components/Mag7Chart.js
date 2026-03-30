@@ -55,24 +55,24 @@ function buildSkeleton() {
 }
 
 function buildChart(stocks) {
-  // Sort ascending: closest to 52W high (best) on the left
-  const sorted = [...stocks].sort((a, b) => a.distPct - b.distPct);
+  // Sort descending: furthest from 52W high (tallest bar) on the left
+  const sorted = [...stocks].sort((a, b) => b.distPct - a.distPct);
 
   const wrap = document.createElement('div');
   wrap.className = 'mag7-wrap';
 
-  // Normalize gap to the range within this group so differences are dramatic
-  const minDist = sorted[0].distPct;
-  const maxDist = sorted[sorted.length - 1].distPct;
+  const minDist = sorted[sorted.length - 1].distPct;
+  const maxDist = sorted[0].distPct;
   const range   = maxDist - minDist || 1;
 
   sorted.forEach((s, idx) => {
-    const color = distColor(s.distPct);
+    // Bar height normalized: highest distPct → tallest bar (90%), lowest → shortest (20%)
+    const normalized  = (s.distPct - minDist) / range;   // 0 → 1
+    const barFlex     = normalized * 70 + 20;             // 20 → 90
+    const gapFlex     = 100 - barFlex;                    // 80 → 10
 
-    // Normalized gap: best stock gets ~5% gap, worst gets ~75% gap
-    const normalized = (s.distPct - minDist) / range;  // 0 → 1
-    const gapFlex    = normalized * 70 + 5;             // 5 → 75
-    const barFlex    = 100 - gapFlex;                   // 95 → 25
+    // All bars red — they're all below their 52W high
+    const color = '#dc2626';
 
     const col = document.createElement('div');
     col.className = 'mag7-col';
