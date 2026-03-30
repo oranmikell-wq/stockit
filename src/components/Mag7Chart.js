@@ -21,8 +21,8 @@ const SECTORS = [
   {
     key: 'tech', label: 'Tech',
     stocks: [
-      { sym: 'NVDA',  name: 'NVIDIA',     domain: 'nvidia.com'     },
       { sym: 'AMD',   name: 'AMD',        domain: 'amd.com'        },
+      { sym: 'QCOM',  name: 'Qualcomm',   domain: 'qualcomm.com'   },
       { sym: 'INTC',  name: 'Intel',      domain: 'intel.com'      },
       { sym: 'AVGO',  name: 'Broadcom',   domain: 'broadcom.com'   },
       { sym: 'CRM',   name: 'Salesforce', domain: 'salesforce.com' },
@@ -89,7 +89,7 @@ const SECTORS = [
       { sym: 'MARA',  name: 'MARA',        domain: ''                   },
       { sym: 'RIOT',  name: 'Riot',        domain: 'riotplatforms.com'  },
       { sym: 'HOOD',  name: 'Robinhood',   domain: 'robinhood.com'      },
-      { sym: 'PYPL',  name: 'PayPal',      domain: 'paypal.com'         },
+      { sym: 'SQ',    name: 'Block',       domain: 'block.xyz'          },
     ],
   },
 ];
