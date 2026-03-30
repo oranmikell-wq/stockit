@@ -474,6 +474,7 @@ async function loadResults(symbol, isRefresh = false) {
     if (offline && cacheDate) {
       document.getElementById('offline-banner').classList.remove('hidden');
       document.getElementById('offline-date').textContent = cacheDate.toLocaleString();
+      document.getElementById('last-updated-bar').classList.add('hidden');
     }
 
     renderResults(data, scored);
