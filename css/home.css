@@ -1401,6 +1401,14 @@
 .market-blocks-row .aaii-card {
   flex: 1;
 }
+.market-blocks-row .fng-compare-rows,
+.market-blocks-row .fng-source,
+.market-blocks-row .fng-updated {
+  display: none;
+}
+.market-blocks-row .fng-svg {
+  max-height: 160px;
+}
 @media (max-width: 900px) {
   .market-blocks-row .fng-gauge-wrap { max-width: 180px; margin: 0 auto; }
   .market-blocks-row .fng-svg { max-height: 120px; }
