@@ -10,8 +10,8 @@ const MAG7 = [
   { sym: 'AMZN',  name: 'Amazon',    domain: 'amazon.com'    },
   { sym: 'META',  name: 'Meta',      domain: 'meta.com'      },
   { sym: 'TSLA',  name: 'Tesla',     domain: 'tesla.com'     },
-  { sym: 'SPY',   name: 'S&P 500',   domain: 'ssga.com'      },
-  { sym: 'QQQ',   name: 'Nasdaq 100',domain: 'invesco.com'   },
+  { sym: 'SPY',   name: 'S&P 500',   domain: ''              },
+  { sym: 'QQQ',   name: 'Nasdaq 100',domain: ''              },
 ];
 
 function distColor(pct) {
@@ -87,9 +87,12 @@ function buildChart(stocks) {
         <div class="mag7-bar" style="flex:${barFlex};background:${color}"></div>
       </div>
       <div class="mag7-logo-wrap">
-        <img class="mag7-logo" src="https://www.google.com/s2/favicons?domain=${s.domain}&sz=64" alt="${s.name}"
-          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-        <div class="mag7-logo-fallback" style="display:none">${s.sym.slice(0, 2)}</div>
+        ${s.domain
+          ? `<img class="mag7-logo" src="https://www.google.com/s2/favicons?domain=${s.domain}&sz=64" alt="${s.name}"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+             <div class="mag7-logo-fallback" style="display:none">${s.sym.slice(0, 3)}</div>`
+          : `<div class="mag7-logo-fallback" style="display:flex">${s.sym.slice(0, 3)}</div>`
+        }
       </div>
       <div class="mag7-sym">${s.sym}</div>
       <div class="mag7-price">$${s.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
