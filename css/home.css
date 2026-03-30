@@ -1616,8 +1616,6 @@
 .mag7-gap {
   /* set via inline flex property */
   min-height: 2px;
-  border-bottom: 2px dashed var(--border-2);
-  position: relative;
 }
 
 .mag7-bar {
