@@ -55,16 +55,24 @@ function buildSkeleton() {
 }
 
 function buildChart(stocks) {
+  // Sort ascending: closest to 52W high (best) on the left
+  const sorted = [...stocks].sort((a, b) => a.distPct - b.distPct);
+
   const wrap = document.createElement('div');
   wrap.className = 'mag7-wrap';
 
-  // Find max distance for relative scaling of the gap
-  const maxDist = Math.max(...stocks.map(s => s.distPct), 1);
+  // Normalize gap to the range within this group so differences are dramatic
+  const minDist = sorted[0].distPct;
+  const maxDist = sorted[sorted.length - 1].distPct;
+  const range   = maxDist - minDist || 1;
 
-  stocks.forEach((s, idx) => {
-    const color    = distColor(s.distPct);
-    const fillPct  = 100 - s.distPct; // bar height as % of area
-    const clampedFill = Math.max(10, Math.min(100, fillPct));
+  sorted.forEach((s, idx) => {
+    const color = distColor(s.distPct);
+
+    // Normalized gap: best stock gets ~5% gap, worst gets ~75% gap
+    const normalized = (s.distPct - minDist) / range;  // 0 → 1
+    const gapFlex    = normalized * 70 + 5;             // 5 → 75
+    const barFlex    = 100 - gapFlex;                   // 95 → 25
 
     const col = document.createElement('div');
     col.className = 'mag7-col';
@@ -73,14 +81,8 @@ function buildChart(stocks) {
     col.innerHTML = `
       <div class="mag7-dist-label" style="color:${color}">-${s.distPct.toFixed(1)}%</div>
       <div class="mag7-bar-area">
-        <div class="mag7-gap" style="flex:${s.distPct};background:repeating-linear-gradient(
-          45deg,
-          transparent,
-          transparent 3px,
-          var(--mag7-gap-stripe) 3px,
-          var(--mag7-gap-stripe) 5px
-        )"></div>
-        <div class="mag7-bar" style="flex:${clampedFill};background:${color}" data-fill="${clampedFill}"></div>
+        <div class="mag7-gap" style="flex:${gapFlex}"></div>
+        <div class="mag7-bar" style="flex:${barFlex};background:${color}"></div>
       </div>
       <div class="mag7-logo-wrap">
         <img class="mag7-logo" src="https://logo.clearbit.com/${s.domain}" alt="${s.name}"
