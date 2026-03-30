@@ -85,7 +85,7 @@ function buildChart(stocks) {
         <div class="mag7-bar" style="flex:${barFlex};background:${color}"></div>
       </div>
       <div class="mag7-logo-wrap">
-        <img class="mag7-logo" src="https://logo.clearbit.com/${s.domain}" alt="${s.name}"
+        <img class="mag7-logo" src="https://www.google.com/s2/favicons?domain=${s.domain}&sz=64" alt="${s.name}"
           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
         <div class="mag7-logo-fallback" style="display:none">${s.sym.slice(0, 2)}</div>
       </div>
