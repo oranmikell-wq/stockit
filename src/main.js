@@ -270,6 +270,7 @@ function navigateTo(page, symbol = null) {
   _navigateTo(page, symbol, {
     loadResults,
   });
+  updateHash(page, symbol);
   if (page === 'home') {
     renderHomeWatchlist();
     // Re-render Top Picks if cache was invalidated (e.g. after visiting speedometer)
@@ -646,11 +647,30 @@ function doSearch(query) {
   navigateTo('results', query);
 }
 
-// ── URL param (?s=AAPL) ────────────────────────────────
+// ── URL hash + param (?s=AAPL  or  #market / #about / #results:AAPL) ──
+function updateHash(page, symbol = null) {
+  const hash = (page === 'results' && symbol) ? `#results:${symbol.toUpperCase()}`
+             : (page === 'home')               ? ''
+             :                                   `#${page}`;
+  history.replaceState(null, '', hash || window.location.pathname + window.location.search);
+}
+
 function checkURLParam() {
+  // ?s=AAPL — legacy share links
   const params = new URLSearchParams(window.location.search);
   const s = params.get('s');
-  if (s) navigateTo('results', s.toUpperCase());
+  if (s) { navigateTo('results', s.toUpperCase()); return; }
+
+  // Hash routing — restore page on refresh
+  const hash = window.location.hash; // e.g. "#market" or "#results:AAPL"
+  if (!hash || hash === '#home') return;
+  if (hash.startsWith('#results:')) {
+    const sym = hash.slice('#results:'.length).toUpperCase();
+    if (sym) navigateTo('results', sym);
+  } else {
+    const page = hash.slice(1); // strip '#'
+    if (['market', 'about', 'compare'].includes(page)) navigateTo(page);
+  }
 }
 
 // ── Bind Events ────────────────────────────────────────
