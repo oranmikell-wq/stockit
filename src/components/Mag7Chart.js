@@ -1,4 +1,4 @@
-// Mag7Chart.js — Distance from 52-Week High, multi-sector toggle
+// Mag7Chart.js — Distance from ATH, multi-sector toggle
 
 import { yahooChart } from '../services/StockService.js';
 
@@ -34,14 +34,14 @@ const SECTORS = [
   {
     key: 'finance', label: 'Finance',
     stocks: [
-      { sym: 'JPM',   name: 'JPMorgan',     domain: 'jpmorganchase.com' },
-      { sym: 'BAC',   name: 'BofA',         domain: 'bankofamerica.com' },
-      { sym: 'WFC',   name: 'Wells Fargo',  domain: 'wellsfargo.com'    },
-      { sym: 'GS',    name: 'Goldman',      domain: 'goldmansachs.com'  },
-      { sym: 'MS',    name: 'Morgan St.',   domain: 'morganstanley.com' },
-      { sym: 'V',     name: 'Visa',         domain: 'visa.com'          },
-      { sym: 'MA',    name: 'Mastercard',   domain: 'mastercard.com'    },
-      { sym: 'PYPL',  name: 'PayPal',       domain: 'paypal.com'        },
+      { sym: 'JPM',   name: 'JPMorgan',    domain: 'jpmorganchase.com' },
+      { sym: 'BAC',   name: 'BofA',        domain: 'bankofamerica.com' },
+      { sym: 'WFC',   name: 'Wells Fargo', domain: 'wellsfargo.com'    },
+      { sym: 'GS',    name: 'Goldman',     domain: 'goldmansachs.com'  },
+      { sym: 'MS',    name: 'Morgan St.',  domain: 'morganstanley.com' },
+      { sym: 'V',     name: 'Visa',        domain: 'visa.com'          },
+      { sym: 'MA',    name: 'Mastercard',  domain: 'mastercard.com'    },
+      { sym: 'PYPL',  name: 'PayPal',      domain: 'paypal.com'        },
     ],
   },
   {
@@ -59,40 +59,45 @@ const SECTORS = [
   {
     key: 'energy', label: 'Energy',
     stocks: [
-      { sym: 'XOM',   name: 'ExxonMobil',  domain: 'exxonmobil.com'     },
-      { sym: 'CVX',   name: 'Chevron',     domain: 'chevron.com'         },
-      { sym: 'COP',   name: 'Conoco',      domain: 'conocophillips.com'  },
-      { sym: 'SLB',   name: 'SLB',         domain: 'slb.com'             },
-      { sym: 'OXY',   name: 'Occidental',  domain: 'oxy.com'             },
-      { sym: 'EOG',   name: 'EOG',         domain: 'eogresources.com'    },
-      { sym: 'BP',    name: 'BP',          domain: 'bp.com'              },
+      { sym: 'XOM',   name: 'ExxonMobil', domain: 'exxonmobil.com'    },
+      { sym: 'CVX',   name: 'Chevron',    domain: 'chevron.com'        },
+      { sym: 'COP',   name: 'Conoco',     domain: 'conocophillips.com' },
+      { sym: 'SLB',   name: 'SLB',        domain: 'slb.com'            },
+      { sym: 'OXY',   name: 'Occidental', domain: 'oxy.com'            },
+      { sym: 'EOG',   name: 'EOG',        domain: 'eogresources.com'   },
+      { sym: 'BP',    name: 'BP',         domain: 'bp.com'             },
     ],
   },
   {
     key: 'consumer', label: 'Consumer',
     stocks: [
-      { sym: 'WMT',   name: 'Walmart',     domain: 'walmart.com'    },
-      { sym: 'COST',  name: 'Costco',      domain: 'costco.com'     },
-      { sym: 'MCD',   name: "McDonald's",  domain: 'mcdonalds.com'  },
-      { sym: 'SBUX',  name: 'Starbucks',   domain: 'starbucks.com'  },
-      { sym: 'NKE',   name: 'Nike',        domain: 'nike.com'       },
-      { sym: 'HD',    name: 'Home Depot',  domain: 'homedepot.com'  },
-      { sym: 'TGT',   name: 'Target',      domain: 'target.com'     },
-      { sym: 'BKNG',  name: 'Booking',     domain: 'booking.com'    },
+      { sym: 'WMT',   name: 'Walmart',    domain: 'walmart.com'   },
+      { sym: 'COST',  name: 'Costco',     domain: 'costco.com'    },
+      { sym: 'MCD',   name: "McDonald's", domain: 'mcdonalds.com' },
+      { sym: 'SBUX',  name: 'Starbucks',  domain: 'starbucks.com' },
+      { sym: 'NKE',   name: 'Nike',       domain: 'nike.com'      },
+      { sym: 'HD',    name: 'Home Depot', domain: 'homedepot.com' },
+      { sym: 'TGT',   name: 'Target',     domain: 'target.com'    },
+      { sym: 'BKNG',  name: 'Booking',    domain: 'booking.com'   },
     ],
   },
   {
     key: 'crypto', label: 'Crypto',
     stocks: [
-      { sym: 'COIN',  name: 'Coinbase',    domain: 'coinbase.com'       },
-      { sym: 'MSTR',  name: 'MicroStrat.', domain: 'microstrategy.com'  },
-      { sym: 'MARA',  name: 'MARA',        domain: ''                   },
-      { sym: 'RIOT',  name: 'Riot',        domain: 'riotplatforms.com'  },
-      { sym: 'HOOD',  name: 'Robinhood',   domain: 'robinhood.com'      },
-      { sym: 'SQ',    name: 'Block',       domain: 'block.xyz'          },
+      { sym: 'COIN',  name: 'Coinbase',   domain: 'coinbase.com'      },
+      { sym: 'MSTR',  name: 'MicroStrat', domain: 'microstrategy.com' },
+      { sym: 'MARA',  name: 'MARA',       domain: ''                  },
+      { sym: 'RIOT',  name: 'Riot',       domain: 'riotplatforms.com' },
+      { sym: 'HOOD',  name: 'Robinhood',  domain: 'robinhood.com'     },
+      { sym: 'SQ',    name: 'Block',      domain: 'block.xyz'         },
     ],
   },
 ];
+
+// ── Layout constants (approximate rendered heights) ──────
+const LABEL_H   = 46;   // dist-label + recovery + margins
+const BOTTOM_H  = 65;   // logo + sym + price + margins
+const BAR_AREA_H = 240 - LABEL_H - BOTTOM_H; // ≈ 129px
 
 // ── Data fetch ───────────────────────────────────────────
 async function fetchStocksData(stockList) {
@@ -104,8 +109,9 @@ async function fetchStocksData(stockList) {
       const price   = meta.regularMarketPrice ?? null;
       const high52w = meta.fiftyTwoWeekHigh   ?? null;
       if (price == null || high52w == null) return null;
-      const distPct = ((high52w - price) / high52w) * 100;
-      return { sym, name, domain, price, high52w, distPct };
+      const distPct     = ((high52w - price) / high52w) * 100;
+      const recoveryPct = (distPct / (100 - distPct)) * 100;
+      return { sym, name, domain, price, high52w, distPct, recoveryPct };
     })
   );
   return results
@@ -130,22 +136,27 @@ function buildSkeleton(count = 8) {
 
 // ── Chart builder ────────────────────────────────────────
 function buildChart(stocks) {
-  // Sort descending: furthest from 52W high → tallest bar on the left
-  const sorted = [...stocks].sort((a, b) => b.distPct - a.distPct);
-
-  const wrap = document.createElement('div');
-  wrap.className = 'mag7-wrap';
-
+  const sorted  = [...stocks].sort((a, b) => b.distPct - a.distPct);
   const minDist = sorted[sorted.length - 1].distPct;
   const maxDist = sorted[0].distPct;
   const range   = maxDist - minDist || 1;
 
-  sorted.forEach((s, idx) => {
-    const normalized = (s.distPct - minDist) / range;
-    const barFlex    = normalized * 70 + 20;   // 20 → 90
-    const gapFlex    = 100 - barFlex;
+  // Normalize helper
+  const normalize = (dist) => (dist - minDist) / range;
+  const barFlex   = (dist) => normalize(dist) * 70 + 20;
 
-    const color = '#dc2626';
+  const wrap = document.createElement('div');
+  wrap.className = 'mag7-wrap';
+  wrap.style.position = 'relative';
+
+  sorted.forEach((s, idx) => {
+    const bf  = barFlex(s.distPct);
+    const gf  = 100 - bf;
+    const col = document.createElement('div');
+    col.className = 'mag7-col';
+    col.style.setProperty('--delay', `${idx * 60}ms`);
+    col.style.cursor = 'pointer';
+    col.title = `View ${s.sym} analysis`;
 
     const logoHtml = s.domain
       ? `<img class="mag7-logo" src="https://www.google.com/s2/favicons?domain=${s.domain}&sz=64" alt="${s.name}"
@@ -153,27 +164,52 @@ function buildChart(stocks) {
          <div class="mag7-logo-fallback" style="display:none">${s.sym.slice(0, 3)}</div>`
       : `<div class="mag7-logo-fallback" style="display:flex">${s.sym.slice(0, 3)}</div>`;
 
-    const col = document.createElement('div');
-    col.className = 'mag7-col';
-    col.style.setProperty('--delay', `${idx * 60}ms`);
     col.innerHTML = `
-      <div class="mag7-dist-label" style="color:${color}">-${s.distPct.toFixed(1)}%</div>
+      <div class="mag7-dist-label">
+        <span class="mag7-dist-pct">-${s.distPct.toFixed(1)}%</span>
+        <span class="mag7-recovery-pct">↑${s.recoveryPct.toFixed(1)}%</span>
+      </div>
       <div class="mag7-bar-area">
-        <div class="mag7-gap" style="flex:${gapFlex}"></div>
-        <div class="mag7-bar" style="flex:${barFlex};background:${color}"></div>
+        <div class="mag7-gap" style="flex:${gf}"></div>
+        <div class="mag7-bar" style="flex:${bf};background:#dc2626"></div>
       </div>
       <div class="mag7-logo-wrap">${logoHtml}</div>
       <div class="mag7-sym">${s.sym}</div>
       <div class="mag7-price">$${s.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
+
+    col.addEventListener('click', () =>
+      document.dispatchEvent(new CustomEvent('mag7:navigate', { detail: s.sym }))
+    );
+
     wrap.appendChild(col);
   });
+
+  // Reference line at -20% (only if within data range)
+  if (minDist < 20 && maxDist > 20) {
+    const bf20   = barFlex(20);
+    const bottom = BOTTOM_H + (bf20 / 100) * BAR_AREA_H;
+    const line   = document.createElement('div');
+    line.className = 'mag7-ref-line';
+    line.style.bottom = `${bottom}px`;
+    line.innerHTML = `<span class="mag7-ref-label">-20% Bear</span>`;
+    wrap.appendChild(line);
+  }
 
   return wrap;
 }
 
+// ── Timestamp ────────────────────────────────────────────
+function timeAgo(ts) {
+  const sec = Math.round((Date.now() - ts) / 1000);
+  if (sec < 60)  return `${sec}s ago`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+  return `${Math.floor(sec / 3600)}h ago`;
+}
+
 // ── State ────────────────────────────────────────────────
-const _cache = {};
-let _active  = 'mag7';
+const _cache    = {};   // key → { stocks, fetchedAt }
+let   _active   = 'mag7';
+let   _tsTimer  = null;
 
 async function switchSector(key, container) {
   _active = key;
@@ -182,12 +218,20 @@ async function switchSector(key, container) {
     btn.classList.toggle('active', btn.dataset.sector === key)
   );
 
-  const area   = container.querySelector('#mag7-chart-area');
-  const sector = SECTORS.find(s => s.key === key);
+  const area      = container.querySelector('#mag7-chart-area');
+  const tsEl      = container.querySelector('.mag7-timestamp');
+  const sector    = SECTORS.find(s => s.key === key);
 
-  const render = (stocks) => {
+  const render = ({ stocks, fetchedAt }) => {
     area.innerHTML = '';
     area.appendChild(buildChart(stocks));
+    if (tsEl) tsEl.textContent = `Updated ${timeAgo(fetchedAt)}`;
+
+    clearInterval(_tsTimer);
+    _tsTimer = setInterval(() => {
+      if (tsEl && _cache[_active]) tsEl.textContent = `Updated ${timeAgo(_cache[_active].fetchedAt)}`;
+    }, 30_000);
+
     requestAnimationFrame(() => {
       area.querySelectorAll('.mag7-col').forEach((col, i) =>
         setTimeout(() => col.classList.add('mag7-animate'), i * 60)
@@ -199,12 +243,14 @@ async function switchSector(key, container) {
 
   area.innerHTML = '';
   area.appendChild(buildSkeleton(sector.stocks.length));
+  if (tsEl) tsEl.textContent = 'Loading…';
 
-  const stocks = await fetchStocksData(sector.stocks);
-  _cache[key]  = stocks;
+  const stocks    = await fetchStocksData(sector.stocks);
+  const fetchedAt = Date.now();
+  _cache[key]     = { stocks, fetchedAt };
 
-  if (_active !== key) return; // tab switched while loading
-  render(stocks);
+  if (_active !== key) return;
+  render(_cache[key]);
 }
 
 // ── Public entry point ───────────────────────────────────
@@ -214,13 +260,13 @@ export async function loadMag7Chart() {
 
   container.innerHTML = '';
 
-  // Tabs row
+  // Tabs
   const tabs = document.createElement('div');
   tabs.className = 'mag7-tabs';
   SECTORS.forEach(s => {
     const btn = document.createElement('button');
-    btn.className  = 'mag7-tab' + (s.key === _active ? ' active' : '');
-    btn.textContent = s.label;
+    btn.className      = 'mag7-tab' + (s.key === _active ? ' active' : '');
+    btn.textContent    = s.label;
     btn.dataset.sector = s.key;
     btn.addEventListener('click', () => switchSector(s.key, container));
     tabs.appendChild(btn);
@@ -228,9 +274,14 @@ export async function loadMag7Chart() {
   container.appendChild(tabs);
 
   // Chart area
-  const area  = document.createElement('div');
-  area.id     = 'mag7-chart-area';
+  const area = document.createElement('div');
+  area.id    = 'mag7-chart-area';
   container.appendChild(area);
+
+  // Timestamp
+  const ts = document.createElement('div');
+  ts.className = 'mag7-timestamp';
+  container.appendChild(ts);
 
   await switchSector(_active, container);
 }

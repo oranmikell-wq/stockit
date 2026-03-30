@@ -1628,10 +1628,56 @@
 
 /* distance label above the bar */
 .mag7-dist-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 4px;
+  gap: 1px;
+}
+
+.mag7-dist-pct {
   font-size: 11px;
   font-weight: 700;
-  margin-bottom: 6px;
+  color: #dc2626;
   white-space: nowrap;
+}
+
+.mag7-recovery-pct {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* hover state */
+.mag7-col:hover .mag7-bar { filter: brightness(1.15); }
+.mag7-col:hover .mag7-sym  { color: var(--text); }
+
+/* reference line */
+.mag7-ref-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1.5px dashed rgba(251,191,36,0.7);
+  pointer-events: none;
+}
+
+.mag7-ref-label {
+  position: absolute;
+  right: 0;
+  top: -16px;
+  font-size: 8.5px;
+  font-weight: 600;
+  color: #f59e0b;
+  white-space: nowrap;
+}
+
+/* timestamp */
+.mag7-timestamp {
+  font-size: 10px;
+  color: var(--text-3);
+  text-align: right;
+  margin-top: 10px;
 }
 
 /* bar area: gap on top (striped) + filled bar below */

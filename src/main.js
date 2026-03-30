@@ -284,6 +284,7 @@ function navigateTo(page, symbol = null) {
     loadSectorPerformance();
     loadMag7Chart();
     applyTranslations();
+    document.addEventListener('mag7:navigate', e => navigateTo('results', e.detail));
   }
 }
 
