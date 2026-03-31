@@ -134,12 +134,23 @@ async function handleFinvizPage(url, origin) {
     }
     const html = await res.text();
 
-    // Finviz snapshot table: <td class="snapshot-td2-cp">Label</td><td class="snapshot-td2"><b>Value</b></td>
+    // Finviz snapshot table — try multiple class-name patterns across redesigns
     const data = {};
+    // Pattern 1: old snapshot-td2-cp / snapshot-td2 classes
     for (const [, label, value] of html.matchAll(
-      /<td[^>]*class="snapshot-td2-cp"[^>]*>\s*([^<]+?)\s*<\/td>\s*<td[^>]*class="snapshot-td2"[^>]*><b>\s*([^<]*?)\s*<\/b>/g
-    )) {
-      data[label.trim()] = value.trim();
+      /<td[^>]*class="[^"]*snapshot-td2-cp[^"]*"[^>]*>\s*([^<]+?)\s*<\/td>\s*<td[^>]*class="[^"]*snapshot-td2[^"]*"[^>]*><b>\s*([^<]*?)\s*<\/b>/g
+    )) { data[label.trim()] = value.trim(); }
+    // Pattern 2: newer Finviz uses data-boxover or aria-label on table cells
+    if (!Object.keys(data).length) {
+      for (const [, label, value] of html.matchAll(
+        /class="[^"]*snapshot-td[^"]*"[^>]*>\s*([A-Za-z][^<]{1,40}?)\s*<\/td>\s*<td[^>]*>\s*<b[^>]*>\s*([^<]+?)\s*<\/b>/g
+      )) { data[label.trim()] = value.trim(); }
+    }
+    // Pattern 3: finviz.com/screener style key-value
+    if (!Object.keys(data).length) {
+      for (const [, label, value] of html.matchAll(
+        /\bShort Float\b[^<]*<\/[^>]+>\s*<[^>]+>\s*<[^>]+>\s*([0-9.]+%?)/g
+      )) { data['Short Float'] = value.trim(); }
     }
 
     const pct  = (s) => (s && s !== '-') ? parseFloat(s) / 100 : null;

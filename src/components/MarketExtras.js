@@ -123,34 +123,24 @@ export async function loadShortInterest() {
   try {
     const results = await Promise.all(SHORT_TICKERS.map(async sym => {
       try {
-        const url  = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=1d&includePrePost=false`;
-        const data = await fetchProxy(url);
-        const meta = data?.chart?.result?.[0]?.meta;
-        if (!meta) return null;
-        // Yahoo v8 chart meta doesn't carry shortPercentOfFloat — try quoteSummary via finviz fallback
-        // Use regularMarketPrice and regularMarketChangePercent from meta
-        const price    = meta.regularMarketPrice ?? null;
-        const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? null;
+        // Fetch price + short % from Finviz (already parsed by worker)
+        const [quoteData, finvizData] = await Promise.all([
+          fetchProxy(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=1d&includePrePost=false`),
+          fetchProxy(`https://finviz.com/quote.ashx?t=${encodeURIComponent(sym)}`),
+        ]);
+        const meta     = quoteData?.chart?.result?.[0]?.meta;
+        const price    = meta?.regularMarketPrice ?? null;
+        const prevClose = meta?.chartPreviousClose ?? meta?.previousClose ?? null;
         const changePct = (price != null && prevClose != null && prevClose !== 0)
           ? ((price - prevClose) / prevClose) * 100 : null;
-        return { sym, price, changePct, shortPct: null };
+        // Finviz shortFloat is like "18.45%" or "18.45"
+        const sfRaw  = finvizData?.shortFloat ?? null;
+        const shortPct = sfRaw != null ? parseFloat(String(sfRaw).replace('%', '')) : null;
+        return { sym, price, changePct, shortPct };
       } catch { return null; }
     }));
 
-    // Fetch short % from Yahoo Finance quote summary for each
-    const enriched = await Promise.all(
-      results.filter(Boolean).map(async r => {
-        try {
-          const url  = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(r.sym)}?modules=defaultKeyStatistics`;
-          const data = await fetchProxy(url);
-          const ks   = data?.quoteSummary?.result?.[0]?.defaultKeyStatistics;
-          const shortPct = ks?.shortPercentOfFloat?.raw != null
-            ? ks.shortPercentOfFloat.raw * 100
-            : null;
-          return { ...r, shortPct };
-        } catch { return r; }
-      })
-    );
+    const enriched = results.filter(Boolean);
 
     // Sort by short % descending; put nulls last
     enriched.sort((a, b) => {
