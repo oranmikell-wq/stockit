@@ -238,36 +238,19 @@ async function _fetchRSS(rssUrl, sourceName) {
 }
 
 async function _fetchLocalNews(container) {
-  // Direct RSS feeds from Israeli financial news sites (include images)
   const rssSources = [
-    { url: 'https://news.google.com/rss/search?q=בורסה+תל+אביב+מניות&hl=iw&gl=IL&ceid=IL:iw',        name: 'שוק ההון' },
-    { url: 'https://news.google.com/rss/search?q=בורסה+ישראל+השקעות+כלכלה&hl=iw&gl=IL&ceid=IL:iw',  name: 'השקעות' },
+    { url: 'https://news.google.com/rss/search?q=בורסה+תל+אביב+מניות&hl=iw&gl=IL&ceid=IL:iw',         name: 'שוק ההון' },
+    { url: 'https://news.google.com/rss/search?q=בורסה+ישראל+השקעות+כלכלה&hl=iw&gl=IL&ceid=IL:iw',   name: 'השקעות' },
+    { url: 'https://news.google.com/rss/search?q=מדד+תל+אביב+מסחר+היום&hl=iw&gl=IL&ceid=IL:iw',       name: 'מסחר' },
+    { url: 'https://news.google.com/rss/search?q=גלובס+בורסה+כלכלה&hl=iw&gl=IL&ceid=IL:iw',           name: 'גלובס' },
   ];
 
-  // Fetch RSS headlines + Finnhub company news (with images) in parallel
-  const key  = localStorage.getItem('bon-finnhub-key') || 'd6qup2hr01qgdhqcgpbgd6qup2hr01qgdhqcgpc0';
-  const to   = new Date().toISOString().split('T')[0];
-  const from = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const syms = ['TEVA', 'NICE', 'CHKP', 'ICL', 'WIX', 'MNDY', 'CYBR'];
+  const rssResults = await Promise.all(rssSources.map(src => _fetchRSS(src.url, src.name)));
 
-  const [rssResults, finnhubResults] = await Promise.all([
-    Promise.all(rssSources.map(src => _fetchRSS(src.url, src.name))),
-    Promise.all(
-      syms.map(s => fetchProxy(`https://finnhub.io/api/v1/company-news?symbol=${s}&from=${from}&to=${to}&token=${key}`)
-        .then(d => (Array.isArray(d) ? d : []).slice(0, 2)).catch(() => []))
-    ),
-  ]);
-
-  const finnhubItems = finnhubResults.flat()
-    .filter(n => n.headline && n.url && n.image)
-    .map(n => ({ headline: n.headline, url: n.url, image: n.image, source: n.source, datetime: n.datetime * 1000 }));
-
-  const seen = new Set([...finnhubItems.map(n => n.url)]);
-  const rssItems = rssResults.flat()
-    .filter(n => n.headline && n.url && _isFinanceHeadline(n.headline) && !seen.has(n.url) && seen.add(n.url));
-
-  // Merge: Finnhub items (with images) + RSS items (Hebrew headlines), sorted by date
-  const items = [...finnhubItems, ...rssItems]
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000; // max 7 days old
+  const seen = new Set();
+  const items = rssResults.flat()
+    .filter(n => n.headline && n.url && n.datetime >= cutoff && _isFinanceHeadline(n.headline) && !seen.has(n.url) && seen.add(n.url))
     .sort((a, b) => b.datetime - a.datetime)
     .slice(0, 10);
 
