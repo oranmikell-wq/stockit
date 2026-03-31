@@ -186,6 +186,7 @@ export async function loadMovers() {
   if (!gEl && !lEl) return;
 
   // Tab switching (wired up immediately so tabs work even before data loads)
+  const tEl = document.getElementById('trending-container');
   document.querySelectorAll('.movers-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.movers-tab').forEach(b => b.classList.remove('active'));
@@ -193,6 +194,7 @@ export async function loadMovers() {
       const tab = btn.dataset.tab;
       gEl?.classList.toggle('hidden', tab !== 'gainers');
       lEl?.classList.toggle('hidden', tab !== 'losers');
+      tEl?.classList.toggle('hidden', tab !== 'trending');
     });
   });
 
