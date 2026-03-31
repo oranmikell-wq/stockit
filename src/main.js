@@ -147,16 +147,38 @@ async function loadHomeNews() {
   await _fetchGlobalNews(globalList);
 }
 
+// Finance keyword filter — keeps only market/stock/economy related headlines
+const _FINANCE_EN = /\b(stock|market|share|nasdaq|s&p|dow|earn|revenue|profit|loss|ipo|fund|invest|trade|trading|quarter|eps|valuat|gdp|inflation|fed|rate|bond|yield|crypto|bitcoin|etf|index|dividend|merger|acqui|wall street|nyse|sector|rally|sell.off|bull|bear|portfolio|analyst|forecast|guidance|outlook)\b/i;
+const _FINANCE_HE = /בורסה|מניה|מניות|שוק|מדד|ת"א|רבעון|רווח|הפסד|השקעה|ריבית|אינפלציה|מסחר|תשואה|קרן|אגרת|אגח|מט"ח|מטבע|נאסד|כלכל|פיננס|תעשיי|ביזפורטל|גלובס|כלכליסט|themarket|שע"ח|תיק/i;
+
+function _isFinanceHeadline(headline) {
+  return _FINANCE_EN.test(headline) || _FINANCE_HE.test(headline);
+}
+
 async function _fetchGlobalNews(container) {
+  const rssSources = [
+    { url: 'https://feeds.reuters.com/reuters/businessNews',                                                              name: 'Reuters' },
+    { url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html',                                                      name: 'CNBC' },
+    { url: 'https://feeds.marketwatch.com/marketwatch/marketpulse/',                                                     name: 'MarketWatch' },
+    { url: 'https://finance.yahoo.com/rss/topfinstories',                                                                name: 'Yahoo Finance' },
+    { url: 'https://news.google.com/rss/search?q=stock+market+wall+street+earnings&hl=en&gl=US&ceid=US:en',              name: 'Market News' },
+  ];
+
   try {
+    const results = await Promise.all(rssSources.map(src => _fetchRSS(src.url, src.name)));
+    const seen  = new Set();
+    const items = results.flat()
+      .filter(n => n.headline && n.url && _isFinanceHeadline(n.headline) && !seen.has(n.url) && seen.add(n.url))
+      .sort((a, b) => b.datetime - a.datetime)
+      .slice(0, 10);
+
+    if (items.length) { _renderHomeNewsItems(container, items); return; }
+
+    // Fallback to Finnhub if all RSS fail
     const key  = localStorage.getItem('bon-finnhub-key') || 'd6qup2hr01qgdhqcgpbgd6qup2hr01qgdhqcgpc0';
     const data = await fetchProxy(`https://finnhub.io/api/v1/news?category=general&token=${key}`);
     _renderHomeNewsItems(container, (data || []).slice(0, 8).map(n => ({
-      headline: n.headline,
-      url:      n.url,
-      image:    n.image,
-      source:   n.source,
-      datetime: n.datetime * 1000,
+      headline: n.headline, url: n.url, image: n.image, source: n.source, datetime: n.datetime * 1000,
     })));
   } catch {
     container.innerHTML = `<p style="color:var(--text-3);font-size:13px;padding:12px 14px">${t('noData')}</p>`;
@@ -183,6 +205,12 @@ function _parseRSS(xmlText, sourceName) {
   } catch { return []; }
 }
 
+function _extractImgFromHtml(html) {
+  if (!html) return null;
+  const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return m ? m[1] : null;
+}
+
 async function _fetchRSS(rssUrl, sourceName) {
   try {
     const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
@@ -192,31 +220,54 @@ async function _fetchRSS(rssUrl, sourceName) {
     return data.items.slice(0, 8).map(item => {
       const raw  = item.title?.trim() || '';
       const dash = raw.lastIndexOf(' - ');
+      // Google News RSS appends " - Source Name" to titles; direct feeds don't
       const headline = dash > 0 ? raw.slice(0, dash) : raw;
-      const source   = dash > 0 ? raw.slice(dash + 3) : (item.author?.trim() || sourceName);
+      const source   = dash > 0 ? raw.slice(dash + 3) : sourceName;
+      const image    = item.thumbnail || item.enclosure?.link ||
+                       _extractImgFromHtml(item.description) ||
+                       _extractImgFromHtml(item.content) || null;
       return {
         headline,
         url:      item.link?.trim() || '',
         source,
         datetime: new Date(item.pubDate || Date.now()).getTime(),
-        image:    item.thumbnail || item.enclosure?.link || null,
+        image,
       };
     }).filter(n => n.headline && n.url);
   } catch { return []; }
 }
 
 async function _fetchLocalNews(container) {
-  // Google News RSS — searches return articles from Globes, Bizportal, TheMarker, etc.
+  // Direct RSS feeds from Israeli financial news sites (include images)
   const rssSources = [
-    { url: 'https://news.google.com/rss/search?q=בורסה+תל+אביב+מניות&hl=iw&gl=IL&ceid=IL:iw',     name: 'שוק ההון' },
-    { url: 'https://news.google.com/rss/search?q=גלובס+שוק+ההון&hl=iw&gl=IL&ceid=IL:iw',          name: 'גלובס' },
-    { url: 'https://news.google.com/rss/search?q=ביזפורטל+מניות+השקעות&hl=iw&gl=IL&ceid=IL:iw',   name: 'ביזפורטל' },
+    { url: 'https://news.google.com/rss/search?q=בורסה+תל+אביב+מניות+מסחר&hl=iw&gl=IL&ceid=IL:iw',   name: 'שוק ההון' },
+    { url: 'https://news.google.com/rss/search?q=מניות+ת%22א+השקעות+כלכלה&hl=iw&gl=IL&ceid=IL:iw',  name: 'השקעות' },
   ];
 
-  const results = await Promise.all(rssSources.map(src => _fetchRSS(src.url, src.name)));
-  const seen    = new Set();
-  const items   = results.flat()
-    .filter(n => n.headline && n.url && !seen.has(n.url) && seen.add(n.url))
+  // Fetch RSS headlines + Finnhub company news (with images) in parallel
+  const key  = localStorage.getItem('bon-finnhub-key') || 'd6qup2hr01qgdhqcgpbgd6qup2hr01qgdhqcgpc0';
+  const to   = new Date().toISOString().split('T')[0];
+  const from = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const syms = ['TEVA', 'NICE', 'CHKP', 'ICL', 'WIX', 'MNDY', 'CYBR'];
+
+  const [rssResults, finnhubResults] = await Promise.all([
+    Promise.all(rssSources.map(src => _fetchRSS(src.url, src.name))),
+    Promise.all(
+      syms.map(s => fetchProxy(`https://finnhub.io/api/v1/company-news?symbol=${s}&from=${from}&to=${to}&token=${key}`)
+        .then(d => (Array.isArray(d) ? d : []).slice(0, 2)).catch(() => []))
+    ),
+  ]);
+
+  const finnhubItems = finnhubResults.flat()
+    .filter(n => n.headline && n.url && n.image)
+    .map(n => ({ headline: n.headline, url: n.url, image: n.image, source: n.source, datetime: n.datetime * 1000 }));
+
+  const seen = new Set([...finnhubItems.map(n => n.url)]);
+  const rssItems = rssResults.flat()
+    .filter(n => n.headline && n.url && _isFinanceHeadline(n.headline) && !seen.has(n.url) && seen.add(n.url));
+
+  // Merge: Finnhub items (with images) + RSS items (Hebrew headlines), sorted by date
+  const items = [...finnhubItems, ...rssItems]
     .sort((a, b) => b.datetime - a.datetime)
     .slice(0, 10);
 
@@ -225,25 +276,7 @@ async function _fetchLocalNews(container) {
     return;
   }
 
-  // Fallback: Finnhub news for major Israeli-listed companies
-  try {
-    const key  = localStorage.getItem('bon-finnhub-key') || 'd6qup2hr01qgdhqcgpbgd6qup2hr01qgdhqcgpc0';
-    const to   = new Date().toISOString().split('T')[0];
-    const from = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const syms = ['TEVA', 'NICE', 'CHKP', 'ICL', 'WIX', 'MNDY', 'CYBR'];
-    const all  = await Promise.all(
-      syms.map(s => fetchProxy(`https://finnhub.io/api/v1/company-news?symbol=${s}&from=${from}&to=${to}&token=${key}`)
-        .then(d => (Array.isArray(d) ? d : []).slice(0, 2)).catch(() => []))
-    );
-    const fallback = all.flat()
-      .filter(n => n.headline && n.url)
-      .sort((a, b) => b.datetime - a.datetime)
-      .slice(0, 10)
-      .map(n => ({ headline: n.headline, url: n.url, image: n.image || null, source: n.source, datetime: n.datetime * 1000 }));
-    _renderHomeNewsItems(container, fallback);
-  } catch {
-    container.innerHTML = `<p style="color:var(--text-3);font-size:13px;padding:12px 14px">${t('noData')}</p>`;
-  }
+  container.innerHTML = `<p style="color:var(--text-3);font-size:13px;padding:12px 14px">${t('noData')}</p>`;
 }
 
 function _renderHomeNewsItems(container, items) {
