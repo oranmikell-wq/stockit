@@ -76,8 +76,6 @@ function renderHomeWatchlist() {
 
   // Render chips immediately with placeholder change
   list.innerHTML = items.map(item => {
-    const ratingKey = item.rating === 'buy' ? 'buy' : item.rating === 'wait' ? 'wait' : 'sell';
-    const badgeCls  = item.rating === 'buy' ? 'badge-buy-bg' : item.rating === 'wait' ? 'badge-wait-bg' : 'badge-sell-bg';
     return `
       <div class="hwl-item" data-symbol="${item.symbol}">
         <div class="hwl-left">
@@ -87,7 +85,6 @@ function renderHomeWatchlist() {
         <div class="hwl-right">
           <span class="hwl-price" id="hwl-price-${item.symbol}"></span>
           <span class="hwl-change hwl-change--loading" id="hwl-change-${item.symbol}">…</span>
-          <span class="wl-badge ${badgeCls}">${t(ratingKey)}</span>
         </div>
       </div>`;
   }).join('');
