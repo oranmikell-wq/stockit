@@ -160,7 +160,6 @@ async function handleFinvizPage(url, origin) {
       instOwn:     pct(data['Inst Own']),
       insiderOwn:  pct(data['Insider Own']),
       targetPrice: num(data['Target Price']),
-      shortFloat:  pct(data['Short Float']),
     }), { headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
 
   } catch (e) {

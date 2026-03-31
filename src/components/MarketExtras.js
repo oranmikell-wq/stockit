@@ -123,19 +123,19 @@ export async function loadShortInterest() {
   try {
     const results = await Promise.all(SHORT_TICKERS.map(async sym => {
       try {
-        // Fetch price + short % from Finviz (already parsed by worker)
-        const [quoteData, finvizData] = await Promise.all([
+        const [quoteData, summaryData] = await Promise.all([
           fetchProxy(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=1d&includePrePost=false`),
-          fetchProxy(`https://finviz.com/quote.ashx?t=${encodeURIComponent(sym)}`),
+          fetchProxy(`https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(sym)}?modules=defaultKeyStatistics`),
         ]);
-        const meta     = quoteData?.chart?.result?.[0]?.meta;
-        const price    = meta?.regularMarketPrice ?? null;
+        const meta      = quoteData?.chart?.result?.[0]?.meta;
+        const price     = meta?.regularMarketPrice ?? null;
         const prevClose = meta?.chartPreviousClose ?? meta?.previousClose ?? null;
         const changePct = (price != null && prevClose != null && prevClose !== 0)
           ? ((price - prevClose) / prevClose) * 100 : null;
-        // Finviz shortFloat is like "18.45%" or "18.45"
-        const sfRaw  = finvizData?.shortFloat ?? null;
-        const shortPct = sfRaw != null ? parseFloat(String(sfRaw).replace('%', '')) : null;
+        // shortPercentOfFloat is 0–1 (e.g. 0.1845 = 18.45%)
+        const ks       = summaryData?.quoteSummary?.result?.[0]?.defaultKeyStatistics;
+        const sfRaw    = ks?.shortPercentOfFloat?.raw ?? null;
+        const shortPct = sfRaw != null ? sfRaw * 100 : null;
         return { sym, price, changePct, shortPct };
       } catch { return null; }
     }));
