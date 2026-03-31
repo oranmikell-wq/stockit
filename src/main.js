@@ -240,8 +240,8 @@ async function _fetchRSS(rssUrl, sourceName) {
 async function _fetchLocalNews(container) {
   // Direct RSS feeds from Israeli financial news sites (include images)
   const rssSources = [
-    { url: 'https://news.google.com/rss/search?q=בורסה+תל+אביב+מניות+מסחר&hl=iw&gl=IL&ceid=IL:iw',   name: 'שוק ההון' },
-    { url: 'https://news.google.com/rss/search?q=מניות+ת%22א+השקעות+כלכלה&hl=iw&gl=IL&ceid=IL:iw',  name: 'השקעות' },
+    { url: 'https://news.google.com/rss/search?q=בורסה+תל+אביב+מניות&hl=iw&gl=IL&ceid=IL:iw',        name: 'שוק ההון' },
+    { url: 'https://news.google.com/rss/search?q=בורסה+ישראל+השקעות+כלכלה&hl=iw&gl=IL&ceid=IL:iw',  name: 'השקעות' },
   ];
 
   // Fetch RSS headlines + Finnhub company news (with images) in parallel
