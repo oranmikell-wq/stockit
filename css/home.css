@@ -32,6 +32,14 @@
   align-items: center;
   gap: 6px;
 }
+
+/* When the title lives INSIDE a card (padding-0 cards need their own spacing) */
+.movers-card > .card-title {
+  padding: 12px 14px 0;
+}
+.home-news-card > .card-title {
+  padding: 12px 14px 0;
+}
 .section-title::before {
   content: '';
   display: inline-block;
@@ -560,15 +568,6 @@
 }
 
 /* ===== MARKET STATUS ===== */
-.market-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-.market-section-header .section-title { margin-bottom: 0; }
 .market-status-wrap {
   display: flex;
   align-items: center;
