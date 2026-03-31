@@ -15,6 +15,7 @@ import { renderTopPicks } from './components/TopPicks.js';
 import { loadAAII }      from './components/AAIISentiment.js';
 import { loadMacroData, loadCryptoPrices, loadUpcomingEvents } from './components/MacroCrypto.js?v=7';
 import { renderMarketStatus, loadDXY, loadCommodities, loadSectorPerformance, loadMovers } from './components/MarketMovers.js?v=1';
+import { loadMarketBreadth, loadEarningsCalendar, loadShortInterest, loadPutCallRatio } from './components/MarketExtras.js';
 import { loadMag7Chart } from './components/Mag7Chart.js';
 import { initInfoButtons } from './components/InfoPopup.js';
 import { renderCompanyCard } from './components/CompanyCard.js';
@@ -285,6 +286,10 @@ function navigateTo(page, symbol = null) {
     loadAAII();
     loadSectorPerformance();
     loadMag7Chart();
+    loadMarketBreadth();
+    loadEarningsCalendar();
+    loadShortInterest();
+    loadPutCallRatio();
     applyTranslations();
     document.addEventListener('mag7:navigate', e => navigateTo('results', e.detail));
   }

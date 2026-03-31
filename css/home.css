@@ -1839,3 +1839,268 @@
   .mag7-price      { display: none; }
 }
 
+/* ===== MARKET EXTRAS ROW ===== */
+.market-extras-row {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  margin-top: 16px;
+  align-items: stretch;
+}
+.market-extras-row > section {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* ── Shared card base ── */
+.breadth-card,
+.pcr-card,
+.short-card,
+.earnings-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  box-shadow: var(--shadow-sm);
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* ── Earnings section ── */
+.earnings-section {
+  margin-top: 16px;
+}
+.earnings-card {
+  height: auto;
+}
+
+/* ── Macro skeleton reuse ── */
+.macro-skeleton {
+  height: 80px;
+  background: var(--bg-3);
+  border-radius: 8px;
+  animation: mac-pulse 1.5s ease-in-out infinite;
+}
+@keyframes mac-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+
+/* ── Error / empty states ── */
+.extras-error,
+.extras-empty,
+.extras-note {
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+  padding: 12px 0;
+  margin: 0;
+}
+.extras-note {
+  font-size: 10px;
+  margin-top: 8px;
+}
+
+/* ── Color helpers ── */
+.positive { color: var(--positive, #22c55e); }
+.negative { color: var(--negative, #ef4444); }
+.warn     { color: var(--warn, #eab308);     }
+.yellow-soft { color: #d97706;               }
+
+/* ===== MARKET BREADTH ===== */
+.breadth-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.breadth-count {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+}
+.breadth-of {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.breadth-label {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-left: 4px;
+}
+.breadth-bar-wrap {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-3);
+  margin-bottom: 10px;
+}
+.breadth-bar-green {
+  background: var(--positive, #22c55e);
+  transition: width 0.4s ease;
+}
+.breadth-bar-red {
+  background: var(--negative, #ef4444);
+  transition: width 0.4s ease;
+}
+.breadth-sub {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ===== PUT/CALL RATIO ===== */
+.pcr-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0 12px;
+}
+.pcr-value {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.pcr-sentiment {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.pcr-meta {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+.pcr-avg {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* ===== SHORT INTEREST ===== */
+.short-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.short-table thead th {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  padding: 0 6px 8px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.short-table tbody td {
+  padding: 7px 6px 7px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.short-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.short-sym {
+  font-weight: 700;
+  color: var(--text);
+}
+.short-pct {
+  font-weight: 700;
+}
+
+/* ===== EARNINGS CALENDAR ===== */
+.ec-group {
+  margin-bottom: 14px;
+}
+.ec-group:last-child {
+  margin-bottom: 0;
+}
+.ec-date-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  background: var(--bg-3);
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-bottom: 8px;
+}
+.ec-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.ec-row:last-child {
+  border-bottom: none;
+}
+.ec-sym {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 52px;
+}
+.ec-company {
+  font-size: 11px;
+  color: var(--text-2);
+  flex: 1 1 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ec-eps {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.ec-time {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.ec-time.bmo {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+.ec-time.amc {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+}
+
+/* ===== MARKET EXTRAS RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .market-extras-row {
+    flex-wrap: wrap;
+  }
+  .market-extras-row > section {
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+@media (max-width: 600px) {
+  .market-extras-row {
+    flex-direction: column;
+  }
+  .market-extras-row > section {
+    flex: 1 1 100%;
+  }
+  .breadth-card,
+  .pcr-card,
+  .short-card {
+    padding: 14px 16px;
+  }
+}
+
