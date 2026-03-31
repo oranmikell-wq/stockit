@@ -44,8 +44,10 @@ export function toggleWatchlist(symbol, name, rating, showNotif, updateBtn, rend
 export function updateWatchlistBtn(symbol) {
   const btn = document.getElementById('btn-watchlist-toggle');
   if (!btn) return;
-  btn.textContent = isInWatchlist(symbol) ? '★' : '☆';
-  btn.style.color = isInWatchlist(symbol) ? '#ca8a04' : '';
+  const inWL = isInWatchlist(symbol);
+  btn.textContent = inWL ? '★' : '☆';
+  btn.style.color = inWL ? '#ca8a04' : '';
+  btn.title = t(inWL ? 'btnRemoveWatchlist' : 'btnWatchlist');
 }
 
 export async function checkWatchlistAlerts(showNotif) {

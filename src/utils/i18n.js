@@ -27,6 +27,10 @@ export const TRANSLATIONS = {
     analyzing: 'מנתח מניה...',
     stockNotFound: 'המניה לא נמצאה',
     back: 'חזור',
+    btnScrollTop: 'חזור למעלה',
+    btnWatchlist: 'הוסף למעקב',
+    btnRemoveWatchlist: 'הסר מהמעקב',
+    btnShare: 'שתף',
     offlineData: 'נתונים מ-',
     partialData: 'נתונים חלקיים',
     price: 'מחיר',
@@ -508,6 +512,10 @@ export const TRANSLATIONS = {
     analyzing: 'Analyzing stock...',
     stockNotFound: 'Stock not found',
     back: 'Back',
+    btnScrollTop: 'Back to top',
+    btnWatchlist: 'Add to watchlist',
+    btnRemoveWatchlist: 'Remove from watchlist',
+    btnShare: 'Share',
     offlineData: 'Data from ',
     partialData: 'Partial data',
     price: 'Price',
@@ -1011,6 +1019,9 @@ export function applyTranslations() {
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = t(el.dataset.i18nTitle);
   });
   document.querySelectorAll('.lang-btn').forEach(btn => {
     btn.textContent = currentLang === 'he' ? 'EN' : 'עב';
