@@ -189,19 +189,35 @@ function _parseRSS(xmlText, sourceName) {
   try {
     const xml   = new DOMParser().parseFromString(xmlText, 'text/xml');
     const nodes = Array.from(xml.querySelectorAll('item'));
-    return nodes.slice(0, 6).map(item => {
+    return nodes.map(item => {
+      const raw  = item.querySelector('title')?.textContent?.trim() || '';
+      const dash = raw.lastIndexOf(' - ');
+      const headline = dash > 0 ? raw.slice(0, dash) : raw;
+      const source   = dash > 0 ? raw.slice(dash + 3) :
+                       (item.querySelector('source')?.textContent?.trim() || sourceName);
       const enclosure = item.querySelector('enclosure');
-      const mediaContent = item.querySelector('content');
-      const image = enclosure?.getAttribute('url') || mediaContent?.getAttribute('url') || null;
+      const mediaTh   = item.getElementsByTagNameNS('http://search.yahoo.com/mrss/', 'thumbnail')[0];
+      const mediaCo   = item.getElementsByTagNameNS('http://search.yahoo.com/mrss/', 'content')[0];
+      const image = enclosure?.getAttribute('url') || mediaTh?.getAttribute('url') ||
+                    mediaCo?.getAttribute('url') ||
+                    _extractImgFromHtml(item.querySelector('description')?.textContent) || null;
       return {
-        headline: item.querySelector('title')?.textContent?.trim() || '',
+        headline,
         url:      item.querySelector('link')?.textContent?.trim() ||
                   item.querySelector('guid')?.textContent?.trim() || '',
-        source:   item.querySelector('source')?.textContent?.trim() || sourceName,
+        source,
         datetime: new Date(item.querySelector('pubDate')?.textContent || Date.now()).getTime(),
         image,
       };
     }).filter(n => n.headline && n.url);
+  } catch { return []; }
+}
+
+async function _fetchGoogleNewsRSS(rssUrl, sourceName) {
+  try {
+    const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(rssUrl), { signal: AbortSignal.timeout(8000) });
+    const xml = await res.text();
+    return _parseRSS(xml, sourceName);
   } catch { return []; }
 }
 
@@ -238,16 +254,16 @@ async function _fetchRSS(rssUrl, sourceName) {
 }
 
 async function _fetchLocalNews(container) {
-  const rssSources = [
-    { url: 'https://news.google.com/rss/search?q=בורסה+תל+אביב+מניות&hl=iw&gl=IL&ceid=IL:iw',         name: 'שוק ההון' },
-    { url: 'https://news.google.com/rss/search?q=בורסה+ישראל+השקעות+כלכלה&hl=iw&gl=IL&ceid=IL:iw',   name: 'השקעות' },
-    { url: 'https://news.google.com/rss/search?q=מדד+תל+אביב+מסחר+היום&hl=iw&gl=IL&ceid=IL:iw',       name: 'מסחר' },
-    { url: 'https://news.google.com/rss/search?q=גלובס+בורסה+כלכלה&hl=iw&gl=IL&ceid=IL:iw',           name: 'גלובס' },
+  const queries = [
+    { url: 'https://news.google.com/rss/search?q=בורסה+תל+אביב+מניות&hl=iw&gl=IL&ceid=IL:iw',          name: 'שוק ההון' },
+    { url: 'https://news.google.com/rss/search?q=בורסה+ישראל+מניות+תל+אביב&hl=iw&gl=IL&ceid=IL:iw',    name: 'שוק ההון' },
+    { url: 'https://news.google.com/rss/search?q=שוק+ההון+ישראל+כלכלה&hl=iw&gl=IL&ceid=IL:iw',          name: 'כלכלה' },
+    { url: 'https://news.google.com/rss/search?q=מניות+ישראל+השקעות+כלכלה&hl=iw&gl=IL&ceid=IL:iw',      name: 'השקעות' },
   ];
 
-  const rssResults = await Promise.all(rssSources.map(src => _fetchRSS(src.url, src.name)));
+  const rssResults = await Promise.all(queries.map(q => _fetchGoogleNewsRSS(q.url, q.name)));
 
-  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000; // max 7 days old
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const seen = new Set();
   const items = rssResults.flat()
     .filter(n => n.headline && n.url && n.datetime >= cutoff && _isFinanceHeadline(n.headline) && !seen.has(n.url) && seen.add(n.url))
