@@ -2106,15 +2106,19 @@
 /* ===== MARKET EXTRAS RESPONSIVE ===== */
 @media (max-width: 900px) {
   .market-extras-row {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
-  .market-extras-row > section {
-    flex: 1 1 calc(50% - 8px);
+  .market-extras-row .short-section {
+    grid-column: 1 / 3;
   }
 }
 @media (max-width: 600px) {
   .market-extras-row {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+  .market-extras-row .short-section {
+    grid-column: 1;
   }
   .market-extras-row > section {
     flex: 1 1 100%;
