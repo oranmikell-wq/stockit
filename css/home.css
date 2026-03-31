@@ -1397,7 +1397,12 @@
   grid-row: 1 / 3;
 }
 .market-grid .fng-svg {
-  max-height: 180px;
+  max-height: 260px;
+}
+.market-grid .fng-gauge-wrap {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
 }
 .market-grid .sector-section {
   grid-column: 2;
