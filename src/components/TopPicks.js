@@ -120,7 +120,6 @@ export async function renderTopPicks(container) {
   container.innerHTML = `
     <div class="sidebar-card tp-card">
       <h2 class="section-title card-title">${t('topPicksTitle')}</h2>
-      <p class="tp-subtitle">${t('topPicksSubtitle')}</p>
       <div id="tp-list" class="tp-list">
         ${[...Array(5)].map(() => '<div class="tp-chip tp-skeleton"></div>').join('')}
       </div>
