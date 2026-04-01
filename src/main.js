@@ -331,7 +331,6 @@ function navigateTo(page, symbol = null) {
     loadSectorPerformance();
     loadMag7Chart();
     loadMarketBreadth();
-    loadEarningsCalendar();
     loadShortInterest();
     loadPutCallRatio();
     applyTranslations();
@@ -842,6 +841,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSectorPerformance();
   loadMovers();
   loadHomeNews();
+  loadEarningsCalendar();
   renderTopPicks(document.getElementById('top-picks-section'));
 
   // FNG toggle: Stocks ↔ Crypto
