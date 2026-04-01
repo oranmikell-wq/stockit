@@ -1229,7 +1229,7 @@
 [dir="rtl"] .aaii-bar-annot { padding-left: 0; padding-right: 8px; }
 
 /* ── Home Watchlist Block ─────────────────────────────── */
-.home-watchlist-section { margin-top: 12px; }
+.home-watchlist-section { margin-top: 0; }
 
 .home-watchlist-list {
   display: flex;
@@ -1894,7 +1894,7 @@
 
 /* ── Earnings section ── */
 .earnings-section {
-  margin-top: 16px;
+  margin-top: 0;
 }
 .earnings-card {
   height: auto;
