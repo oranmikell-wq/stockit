@@ -65,18 +65,23 @@ export async function loadEarningsCalendar() {
   try {
     const today = new Date();
     const from  = _fmtDate(today);
-    const to    = _fmtDate(new Date(today.getTime() + 7 * 86400000));
     const key   = getFinnhubKey();
-    const url   = `https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&token=${key}`;
-    const data  = await fetchProxy(url);
 
-    const items = (data?.earningsCalendar ?? [])
-      .filter(e => KNOWN_SYMBOLS.has(e.symbol))
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(0, 10);
+    // Try progressively wider windows until we have results
+    let items = [];
+    for (const days of [14, 30, 60]) {
+      const to  = _fmtDate(new Date(today.getTime() + days * 86400000));
+      const url = `https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&token=${key}`;
+      const data = await fetchProxy(url);
+      items = (data?.earningsCalendar ?? [])
+        .filter(e => KNOWN_SYMBOLS.has(e.symbol))
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(0, 10);
+      if (items.length) break;
+    }
 
     if (!items.length) {
-      el.innerHTML = '<p class="extras-empty">No major earnings this week</p>';
+      el.innerHTML = '<p class="extras-empty">No upcoming earnings found</p>';
       return;
     }
 
