@@ -211,11 +211,26 @@ function _parseRSS(xmlText, sourceName) {
 }
 
 async function _fetchGoogleNewsRSS(rssUrl, sourceName) {
-  try {
-    const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(rssUrl), { signal: AbortSignal.timeout(8000) });
-    const xml = await res.text();
-    return _parseRSS(xml, sourceName);
-  } catch { return []; }
+  // Try corsproxy first, fallback to allorigins, then rss2json
+  const proxies = [
+    () => fetch('https://corsproxy.io/?' + encodeURIComponent(rssUrl), { signal: AbortSignal.timeout(8000) }).then(r => r.text()).then(xml => _parseRSS(xml, sourceName)),
+    () => fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(rssUrl), { signal: AbortSignal.timeout(8000) }).then(r => r.text()).then(xml => _parseRSS(xml, sourceName)),
+    () => fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl), { signal: AbortSignal.timeout(8000) }).then(r => r.json()).then(d => {
+      if (d.status !== 'ok' || !d.items?.length) return [];
+      return d.items.map(item => {
+        const raw = item.title?.trim() || '';
+        const dash = raw.lastIndexOf(' - ');
+        return { headline: dash > 0 ? raw.slice(0, dash) : raw, url: item.link?.trim() || '', source: dash > 0 ? raw.slice(dash + 3) : sourceName, datetime: new Date(item.pubDate || Date.now()).getTime(), image: item.thumbnail || null };
+      }).filter(n => n.headline && n.url);
+    }),
+  ];
+  for (const attempt of proxies) {
+    try {
+      const items = await attempt();
+      if (items.length) return items;
+    } catch { /* try next */ }
+  }
+  return [];
 }
 
 function _extractImgFromHtml(html) {
