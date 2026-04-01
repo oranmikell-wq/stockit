@@ -99,22 +99,29 @@ export async function loadEarningsCalendar() {
       byDate[e.date].push(e);
     });
 
-    el.innerHTML = items.map(e => {
-      const d     = new Date(e.date + 'T00:00:00');
-      const day   = d.getDate();
-      const month = d.toLocaleString('en', { month: 'short' });
-      const companyName = KNOWN_COMPANIES[e.symbol] || e.name || e.symbol;
-      return `
-        <div class="event-item">
-          <div class="event-date-col">
-            <div class="event-day">${day}</div>
-            <div class="event-month">${month}</div>
-          </div>
-          <div class="event-info">
-            <div class="event-name">${companyName}</div>
-            <div class="event-countdown">${e.symbol}</div>
-          </div>
-        </div>`;
+    today.setHours(0,0,0,0);
+
+    el.innerHTML = Object.entries(byDate).map(([date, entries]) => {
+      const d       = new Date(date + 'T00:00:00');
+      const day     = d.getDate();
+      const month   = d.toLocaleString('en', { month: 'short' });
+      const days    = Math.round((d - today) / 86400000);
+      const countdown = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`;
+      const countdownClass = days <= 3 ? 'event-countdown soon' : 'event-countdown';
+
+      return entries.map((e, i) => {
+        const companyName = KNOWN_COMPANIES[e.symbol] || e.name || e.symbol;
+        return `
+          <div class="event-item">
+            <div class="event-date-col">
+              ${i === 0 ? `<div class="event-day">${day}</div><div class="event-month">${month}</div>` : '<div class="event-day" style="opacity:0">·</div><div class="event-month"></div>'}
+            </div>
+            <div class="event-info">
+              <div class="event-name">${companyName}</div>
+              ${i === 0 ? `<div class="${countdownClass}">${countdown}</div>` : ''}
+            </div>
+          </div>`;
+      }).join('');
     }).join('');
 
   } catch {
