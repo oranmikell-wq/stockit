@@ -92,25 +92,22 @@ export async function loadEarningsCalendar() {
       byDate[e.date].push(e);
     });
 
-    el.innerHTML = Object.entries(byDate).map(([date, entries]) => {
-      const label = _shortDate(date);
-      const rows  = entries.map(e => {
-        const time     = e.hour === 'bmo' ? '<span class="ec-time bmo">BMO</span>'
-                       : e.hour === 'amc' ? '<span class="ec-time amc">AMC</span>'
-                       : '';
-        const epsEst   = e.epsEstimate != null ? `<span class="ec-eps">Est: ${e.epsEstimate.toFixed(2)}</span>` : '';
-        const company  = e.name ? `<span class="ec-company">${e.name}</span>` : '';
-        return `<div class="ec-row">
-          <span class="ec-sym">${e.symbol}</span>
-          ${company}
-          ${epsEst}
-          ${time}
+    el.innerHTML = items.map(e => {
+      const d     = new Date(e.date + 'T00:00:00');
+      const day   = d.getDate();
+      const month = d.toLocaleString('en', { month: 'short' });
+      const hasName = e.name && e.name !== e.symbol;
+      return `
+        <div class="event-item">
+          <div class="event-date-col">
+            <div class="event-day">${day}</div>
+            <div class="event-month">${month}</div>
+          </div>
+          <div class="event-info">
+            <div class="event-name">${hasName ? e.name : e.symbol}</div>
+            ${hasName ? `<div class="event-countdown">${e.symbol}</div>` : ''}
+          </div>
         </div>`;
-      }).join('');
-      return `<div class="ec-group">
-        <div class="ec-date-badge">${label}</div>
-        ${rows}
-      </div>`;
     }).join('');
 
   } catch {
