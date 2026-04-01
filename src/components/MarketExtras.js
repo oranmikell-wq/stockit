@@ -50,13 +50,20 @@ export async function loadMarketBreadth() {
 }
 
 // ── 2. Earnings Calendar ──────────────────────────────────────────────────────
-const KNOWN_SYMBOLS = new Set([
-  'AAPL','MSFT','GOOGL','AMZN','META','NVDA','TSLA','JPM','BAC','WFC','GS','MS',
-  'V','MA','COST','WMT','HD','MCD','NKE','DIS','NFLX','ORCL','CRM','ADBE','INTC',
-  'AMD','QCOM','TXN','IBM','XOM','CVX','JNJ','PFE','MRK','ABBV','LLY','UNH',
-  'T','VZ','CMCSA','PEP','KO','PM','MO','BA','CAT','GE','MMM','HON','UPS','FDX',
-  'AMT','PLD','SPG',
-]);
+const KNOWN_COMPANIES = {
+  AAPL:'Apple', MSFT:'Microsoft', GOOGL:'Alphabet', AMZN:'Amazon', META:'Meta',
+  NVDA:'NVIDIA', TSLA:'Tesla', JPM:'JPMorgan', BAC:'Bank of America', WFC:'Wells Fargo',
+  GS:'Goldman Sachs', MS:'Morgan Stanley', V:'Visa', MA:'Mastercard', COST:'Costco',
+  WMT:'Walmart', HD:'Home Depot', MCD:"McDonald's", NKE:'Nike', DIS:'Disney',
+  NFLX:'Netflix', ORCL:'Oracle', CRM:'Salesforce', ADBE:'Adobe', INTC:'Intel',
+  AMD:'AMD', QCOM:'Qualcomm', TXN:'Texas Instruments', IBM:'IBM', XOM:'ExxonMobil',
+  CVX:'Chevron', JNJ:'Johnson & Johnson', PFE:'Pfizer', MRK:'Merck', ABBV:'AbbVie',
+  LLY:'Eli Lilly', UNH:'UnitedHealth', T:'AT&T', VZ:'Verizon', CMCSA:'Comcast',
+  PEP:'PepsiCo', KO:'Coca-Cola', PM:'Philip Morris', MO:'Altria', BA:'Boeing',
+  CAT:'Caterpillar', GE:'GE', MMM:'3M', HON:'Honeywell', UPS:'UPS', FDX:'FedEx',
+  AMT:'American Tower', PLD:'Prologis', SPG:'Simon Property',
+};
+const KNOWN_SYMBOLS = new Set(Object.keys(KNOWN_COMPANIES));
 
 export async function loadEarningsCalendar() {
   const el = document.getElementById('earnings-container');
@@ -96,7 +103,7 @@ export async function loadEarningsCalendar() {
       const d     = new Date(e.date + 'T00:00:00');
       const day   = d.getDate();
       const month = d.toLocaleString('en', { month: 'short' });
-      const hasName = e.name && e.name !== e.symbol;
+      const companyName = KNOWN_COMPANIES[e.symbol] || e.name || e.symbol;
       return `
         <div class="event-item">
           <div class="event-date-col">
@@ -104,8 +111,8 @@ export async function loadEarningsCalendar() {
             <div class="event-month">${month}</div>
           </div>
           <div class="event-info">
-            <div class="event-name">${hasName ? e.name : e.symbol}</div>
-            ${hasName ? `<div class="event-countdown">${e.symbol}</div>` : ''}
+            <div class="event-name">${companyName}</div>
+            <div class="event-countdown">${e.symbol}</div>
           </div>
         </div>`;
     }).join('');
