@@ -685,7 +685,36 @@ body {
   gap: 12px;
   direction: ltr; /* always LTR — prevents RTL from flipping footer */
   text-align: left;
+  flex-wrap: wrap;
 }
+
+.footer-blurb {
+  flex: 0 0 100%;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding-bottom: 12px;
+  margin-bottom: 2px;
+}
+.footer-blurb-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.6);
+  margin: 0 0 6px 0;
+  letter-spacing: 0.3px;
+}
+.footer-blurb-text {
+  font-size: 10px;
+  color: rgba(255,255,255,0.35);
+  line-height: 1.6;
+  margin: 0 0 4px 0;
+}
+.footer-blurb-disclaimer {
+  font-size: 9px;
+  color: rgba(255,255,255,0.22);
+  line-height: 1.5;
+  margin: 6px 0 0 0;
+  font-style: italic;
+}
+
 /* Override RTL text-align + line-height cascade inside footer */
 .app-footer span,
 .app-footer a { text-align: left; line-height: 1.2; }

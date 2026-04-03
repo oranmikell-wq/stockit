@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <script>
+    (function(){
+      var lang = localStorage.getItem('bon-lang') || 'en';
+      var theme = localStorage.getItem('bon-theme') || 'dark';
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <meta charset="UTF-8" />
+  <meta name="google-adsense-account" content="ca-pub-6713759975495292" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Bull Therapy</title>
+  <meta name="description" content="Bull Therapy Privacy Policy. We don't collect personal data. All preferences are stored locally on your device." />
+  <link rel="canonical" href="https://www.bulltherapy.com/privacy.html" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6713759975495292" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="css/main.css?v=33" />
+  <style>
+    body { display: flex; flex-direction: column; min-height: 100vh; }
+    .static-content { flex: 1; max-width: 760px; margin: 0 auto; width: 100%; padding: 40px 24px 60px; }
+    .static-content .about-logo { font-size: 22px; font-weight: 800; color: var(--text-1); margin-bottom: 28px; }
+    .privacy-link { color: var(--green); }
+  </style>
+</head>
+<body class="theme-dark">
+
+  <header class="top-bar" dir="ltr">
+    <div class="tb-row-top">
+      <a class="tb-brand" href="/">
+        <img src="logo2.png" alt="Bull Therapy logo" class="tb-logo" />
+        <div class="tb-brand-text">
+          <span class="tb-brand-name">Bull Therapy</span>
+          <span class="tb-brand-sub">Trade with a clear head</span>
+        </div>
+      </a>
+
+      <div class="tb-search-wrap">
+        <form class="search-box" action="/" method="get" onsubmit="return doSearch(this)">
+          <input
+            id="search-input"
+            name="s"
+            type="text"
+            placeholder="Stock analysis in one click..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="submit" class="tb-search-btn" aria-label="Search">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.8"/>
+              <line x1="10.2" y1="10.2" x2="14" y2="14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </form>
+      </div>
+
+      <nav class="tb-nav">
+        <a class="tb-nav-btn" href="/" title="Home">
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="none"><path d="M2 6.5L8 2l6 4.5V14H10v-3H6v3H2V6.5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        </a>
+        <a class="tb-nav-btn" href="/" title="Market Analysis">
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="3.5" height="6" rx="0.6" stroke="currentColor" stroke-width="1.5"/><rect x="6.3" y="5" width="3.5" height="10" rx="0.6" stroke="currentColor" stroke-width="1.5"/><rect x="11.5" y="1" width="3.5" height="14" rx="0.6" stroke="currentColor" stroke-width="1.5"/></svg>
+        </a>
+        <a class="tb-nav-btn" href="/about.html" title="About">
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.6"/><line x1="8" y1="7" x2="8" y2="11.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="4.8" r="0.9" fill="currentColor"/></svg>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="static-content">
+    <div class="about-logo">Privacy Policy</div>
+
+    <div class="about-section">
+      <h2 class="privacy-h2">1. Overview</h2>
+      <p class="about-text">Bull Therapy ("we", "our", "us") operates the website at <strong>bulltherapy.com</strong>. This Privacy Policy explains how we handle information when you use our service. We are committed to protecting your privacy.</p>
+    </div>
+
+    <div class="about-section">
+      <h2 class="privacy-h2">2. Information We Collect</h2>
+      <p class="about-text">We do <strong>not</strong> collect, store, or transmit any personal information to our servers. Bull Therapy operates entirely in your browser. The following data is stored <strong>locally on your device only</strong> (localStorage):</p>
+      <ul class="privacy-list">
+        <li>Search history (stock symbols you have searched)</li>
+        <li>Watchlist (stocks you have saved)</li>
+        <li>Display preferences (theme: light/dark, language: EN/HE)</li>
+        <li>Cached stock data (to reduce API calls, expires after 15 minutes)</li>
+        <li>Optional API keys you choose to enter (stored only on your device)</li>
+      </ul>
+      <p class="about-text">You can clear this data at any time by clearing your browser's local storage.</p>
+    </div>
+
+    <div class="about-section">
+      <h2 class="privacy-h2">3. Third-Party Data Sources</h2>
+      <p class="about-text">To provide stock analysis, we make requests to the following third-party APIs. Please review their respective privacy policies:</p>
+      <ul class="privacy-list">
+        <li><strong>Yahoo Finance</strong> — market price data</li>
+        <li><strong>Finnhub</strong> (finnhub.io) — analyst recommendations, trending stocks</li>
+        <li><strong>Financial Modeling Prep</strong> (financialmodelingprep.com) — earnings &amp; revenue data</li>
+        <li><strong>CoinGecko</strong> (coingecko.com) — cryptocurrency prices</li>
+        <li><strong>CNN Business</strong> — Fear &amp; Greed index</li>
+        <li><strong>New York Federal Reserve</strong> — interest rate data</li>
+        <li><strong>Alpha Vantage</strong> — CPI / inflation data</li>
+      </ul>
+    </div>
+
+    <div class="about-section">
+      <h2 class="privacy-h2">4. Advertising — Google AdSense</h2>
+      <p class="about-text">We use <strong>Google AdSense</strong> to display advertisements. Google may use cookies and similar technologies to serve ads based on your prior visits to this and other websites.</p>
+      <p class="about-text">Google's use of advertising cookies enables it and its partners to serve ads based on your visit to our site and/or other sites on the Internet. You may opt out of personalized advertising by visiting <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener" class="privacy-link">Google Ads Settings</a>.</p>
+      <p class="about-text">For more information, see <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" class="privacy-link">Google's Privacy Policy</a>.</p>
+    </div>
+
+    <div class="about-section">
+      <h2 class="privacy-h2">5. Cookies &amp; Local Storage</h2>
+      <p class="about-text">Bull Therapy uses <strong>localStorage</strong> (not cookies) to store your preferences, watchlist, and search history locally on your device — this data never leaves your browser. Google AdSense and third-party services may set cookies on your device for advertising and analytics purposes. You can manage cookies through your browser settings, and you may opt out of personalized ads via your consent preferences on this site.</p>
+    </div>
+
+    <div class="about-section">
+      <h2 class="privacy-h2">6. Children's Privacy</h2>
+      <p class="about-text">Our service is not directed to individuals under the age of 13. We do not knowingly collect personal information from children.</p>
+    </div>
+
+    <div class="about-section">
+      <h2 class="privacy-h2">7. Disclaimer</h2>
+      <p class="about-text">The information provided by Bull Therapy is for <strong>informational and educational purposes only</strong>. Nothing on this site constitutes financial advice. Always consult a qualified financial advisor before making investment decisions.</p>
+    </div>
+
+    <div class="about-section">
+      <h2 class="privacy-h2">8. Contact</h2>
+      <p class="about-text">If you have any questions about this Privacy Policy, please contact us at: <a href="mailto:info@bulltherapy.com" class="privacy-link">info@bulltherapy.com</a></p>
+    </div>
+
+    <div class="about-section">
+      <p class="about-text" style="color: var(--text-3); font-size: 12px;">Last updated: March 2026</p>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <div class="footer-blurb">
+      <h2 class="footer-blurb-title">What is Bull Therapy?</h2>
+      <p class="footer-blurb-text">Bull Therapy is a free stock analysis tool that scores any stock across four categories — Growth, Valuation, Quality, and Technical — and gives you a clear signal: Buy, Wait, or Avoid. No financial jargon. No subscription. Just type a ticker and get an instant, data-driven analysis based on EPS growth, PEG ratio, operating margin, insider ownership, and more.</p>
+      <p class="footer-blurb-text">Our scoring model weights Growth at 35% (EPS Surprise, EPS Growth, Revenue Growth), Valuation at 25% (PEG Ratio, FCF Yield, P/E), Quality at 20% (Operating Margin, Insider Ownership, ROE, Current Ratio), and Technical indicators at 20% (MA200, Distance from 52-Week High, Short Float, RSI).</p>
+      <p class="footer-blurb-disclaimer">Bull Therapy is for informational and educational purposes only. Nothing on this site constitutes financial advice. Always consult a qualified financial advisor before making investment decisions.</p>
+    </div>
+    <div class="footer-info">
+      <a href="mailto:info@bulltherapy.com" class="footer-contact">Contact Us: info@bulltherapy.com</a>
+      <div class="footer-links">
+        <span class="footer-copy">Copyright 2026 © Bull Therapy</span>
+        <span class="footer-sep">·</span>
+        <a href="/" class="footer-contact">Home</a>
+        <span class="footer-sep">·</span>
+        <a href="/about.html" class="footer-contact">About Us</a>
+        <span class="footer-sep">·</span>
+        <a href="/privacy.html" class="footer-contact">Privacy Policy</a>
+      </div>
+    </div>
+    <div class="footer-controls">
+      <button id="btn-theme" class="footer-ctrl-btn" onclick="toggleTheme()">Dark</button>
+      <button id="btn-lang" class="footer-ctrl-btn" onclick="toggleLang()">EN</button>
+    </div>
+  </footer>
+
+  <script>
+    (function(){
+      var theme = localStorage.getItem('bon-theme') || 'dark';
+      document.body.className = 'theme-' + theme;
+      document.getElementById('btn-theme').textContent = theme === 'dark' ? 'Light' : 'Dark';
+    })();
+
+    function toggleTheme() {
+      var isDark = document.body.classList.contains('theme-dark');
+      var next = isDark ? 'light' : 'dark';
+      document.body.className = 'theme-' + next;
+      localStorage.setItem('bon-theme', next);
+      document.getElementById('btn-theme').textContent = next === 'dark' ? 'Light' : 'Dark';
+    }
+
+    function toggleLang() {
+      var lang = localStorage.getItem('bon-lang') || 'en';
+      var next = lang === 'en' ? 'he' : 'en';
+      localStorage.setItem('bon-lang', next);
+      window.location.reload();
+    }
+
+    function doSearch(form) {
+      var q = form.s.value.trim().toUpperCase();
+      if (q) window.location.href = '/?s=' + encodeURIComponent(q);
+      return false;
+    }
+  </script>
+</body>
+</html>

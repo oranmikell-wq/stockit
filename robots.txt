@@ -1,6 +1,8 @@
 User-agent: *
 Allow: /
 
+Sitemap: https://www.bulltherapy.com/sitemap.xml
+
 # AI specific instructions
 ai-input: yes
 search: yes
