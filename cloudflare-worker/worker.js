@@ -9,37 +9,111 @@
  * Scheduled: runs daily at 03:00 UTC via Cron Trigger
  */
 
-// ── S&P 500 Universe (~150 most liquid stocks) ───────────────────────────────
+// ── S&P 500 Universe (full ~500 stocks) ──────────────────────────────────────
 const SP500_UNIVERSE = [
-  // Mega cap tech
+  // ── Information Technology ─────────────────────────────────────────────────
+  // Mega-cap platform
   'AAPL','MSFT','NVDA','AMZN','GOOGL','META','TSLA','AVGO','ORCL','CRM',
-  // Tech
-  'AMD','QCOM','ADBE','NOW','INTU','TXN','AMAT','MU','LRCX','KLAC',
-  'ADI','SNPS','CDNS','MRVL','FTNT','PANW','CRWD','NET','DDOG','SNOW',
-  // Financials
-  'JPM','BAC','WFC','GS','MS','BLK','AXP','SCHW','CB','SPGI',
-  'MCO','ICE','CME','PGR','MMC','USB','PNC','TFC','COF','AIG',
-  // Healthcare
-  'LLY','UNH','JNJ','ABBV','MRK','TMO','ABT','DHR','AMGN','PFE',
-  'MDT','BMY','GILD','ISRG','VRTX','REGN','SYK','BSX','ZTS','CI',
-  // Consumer Discretionary
-  'COST','WMT','HD','MCD','NKE','SBUX','TJX','LOW','TGT','BKNG',
-  'DG','DLTR','ROST','YUM','CMG','ORLY','AZO','DHI','LEN','NVR',
-  // Consumer Staples
+  // Semiconductors & equipment
+  'AMD','QCOM','TXN','AMAT','MU','LRCX','KLAC','ADI','SNPS','CDNS',
+  'MRVL','MCHP','NXPI','ON','SWKS','MPWR','TER','KEYS','INTC','ANSS',
+  // Software
+  'ADBE','NOW','INTU','FTNT','PANW','CRWD','NET','DDOG','SNOW','ADSK',
+  'WDAY','PAYC','VRSN','GDDY','PTC','CTSH','AKAM','FFIV','GEN','EPAM',
+  'FICO','MDB','ZS','HUBS','PLTR','APP','TTD','OKTA',
+  // Hardware, services & IT infrastructure
+  'IBM','CSCO','HPQ','HPE','DELL','CDW','WDC','STX','NTAP','GLW',
+  'APH','TEL','FTV','ZBRA','TRMB','LDOS','IT','JNPR','ACN','MANH',
+  // Clean energy / power tech
+  'FSLR','ENPH','GNRC',
+
+  // ── Financials ─────────────────────────────────────────────────────────────
+  // Banks
+  'JPM','BAC','WFC','GS','MS','USB','PNC','TFC','COF','MTB',
+  'RF','FITB','HBAN','KEY','CFG','ZION','FHN','CMA',
+  // Exchanges, brokers & wealth management
+  'BLK','AXP','SCHW','SPGI','MCO','ICE','CME','CBOE','NDAQ','MKTX',
+  'STT','BK','NTRS','TROW','IVZ','BEN','VOYA','RJF','FDS','SEIC','BR',
+  // Insurance
+  'CB','PGR','MMC','MET','PRU','AFL','ALL','HIG','LNC','UNM',
+  'CINF','WRB','GL','AIG','AMP','EG','AON','WTW','BRO','ERIE','AIZ',
+  // Consumer finance & alternative assets
+  'SYF','ALLY','PFG','KKR','APO','CG','FNF','LPLA','ORI',
+
+  // ── Health Care ────────────────────────────────────────────────────────────
+  // Pharmaceuticals & biotech
+  'LLY','JNJ','ABBV','MRK','AMGN','PFE','BMY','GILD','VRTX','REGN',
+  'MRNA','BIIB','ALNY','INCY','NBIX','UTHR','EXAS','OGN',
+  // Medical devices & diagnostics
+  'UNH','TMO','ABT','DHR','ISRG','SYK','BSX','ZTS','MDT','EW',
+  'DXCM','BDX','GEHC','RMD','HOLX','IQV','PODD','RVTY','MTD','A',
+  'BAX','TFX','ALGN','WAT','ILMN','COO','CRL','TECH','SOLV',
+  // Health services & managed care
+  'CI','ELV','HUM','CNC','MOH','CVS','HCA','MCK','ABC','CAH',
+  'DGX','LH','HSIC',
+
+  // ── Consumer Discretionary ─────────────────────────────────────────────────
+  // General & specialty retail
+  'HD','TJX','LOW','TGT','DG','DLTR','ROST','BBY','BURL','DECK',
+  'ORLY','AZO','KMX','AN','CPRT','DKS','GPC',
+  // Restaurants
+  'MCD','SBUX','YUM','CMG','DPZ',
+  // Hotels & travel
+  'HLT','MAR','BKNG','ABNB','EXPE',
+  // Gaming, entertainment & cruises
+  'LVS','MGM','CZR','WYNN','RCL','CCL','NCLH','LYV','PENN',
+  // Automobiles & components
+  'F','GM','APTV','BWA','LKQ','LEA',
+  // Homebuilders & home products
+  'DHI','LEN','NVR','PHM','TOL','POOL','MAS','WHR','SCI','TPX',
+  // Apparel, footwear & accessories
+  'NKE','LULU','RL','PVH','TPR','HAS','MAT','GRMN',
+  // Online retail & marketplaces
+  'UBER','DASH','EBAY','ETSY','RH','WSM',
+  // Airlines
+  'DAL','UAL','AAL','LUV','ALK',
+
+  // ── Consumer Staples ───────────────────────────────────────────────────────
   'PG','KO','PEP','PM','MO','MDLZ','CL','EL','KMB','GIS',
-  // Industrials
-  'CAT','DE','HON','RTX','LMT','GE','UPS','FDX','CSX','UNP',
-  'NSC','EMR','ETN','PH','ROK','LHX','NOC','GD','HWM','CARR',
-  // Energy
+  'WMT','COST','KR','SYY','ADM','CAG','CPB','HRL','MKC','CHD',
+  'CLX','HSY','MNST','STZ','TAP','KHC','SJM','WBA','BG','TSN','LW',
+
+  // ── Industrials ────────────────────────────────────────────────────────────
+  // Aerospace & defense
+  'RTX','LMT','NOC','GD','LHX','TDG','HWM','HEI','BA','SAIC','TXT',
+  // Capital goods & machinery
+  'CAT','DE','HON','GE','GEV','EMR','ETN','PH','ROK','ITW',
+  'DOV','IR','TT','JCI','CARR','OTIS','ALLE','MMM','WAB','TDY',
+  'IEX','NDSN','LII','AOS','PNR','SNA','SWK',
+  // Commercial & professional services
+  'WM','RSG','VRSK','EFX','TRU','CTAS','PAYX','ADP',
+  'FAST','GWW','PWR','WCC','EME','AXON','MTZ','J','ACM',
+  // Transportation
+  'UPS','FDX','CSX','UNP','NSC','ODFL','XPO','CHRW','EXPD',
+
+  // ── Energy ─────────────────────────────────────────────────────────────────
   'XOM','CVX','COP','EOG','SLB','PSX','VLO','MPC','OXY','HAL',
-  // Communication
-  'NFLX','DIS','CMCSA','T','VZ','TMUS','CHTR','TTWO','EA','WBD',
-  // Utilities
-  'NEE','SO','DUK','AEP','SRE','EXC','XEL','D',
-  // Real Estate
-  'PLD','AMT','EQIX','CCI','PSA','O','WELL','DLR',
-  // Materials
-  'LIN','APD','SHW','ECL','NEM','FCX','PPG','VMC',
+  'DVN','FANG','BKR','APA','CTRA','EQT','HES','TRGP','OKE','KMI',
+  'WMB','DINO','NOV',
+
+  // ── Communication Services ─────────────────────────────────────────────────
+  'NFLX','DIS','CMCSA','T','VZ','TMUS','CHTR','EA','WBD','TTWO',
+  'OMC','IPG','FOXA','NWS','PARA','MTCH','PINS','NYT',
+
+  // ── Utilities ──────────────────────────────────────────────────────────────
+  'NEE','SO','DUK','AEP','SRE','EXC','XEL','D','PCG','EIX',
+  'PPL','AES','NRG','CMS','ETR','WEC','ES','CNP','FE','AWK',
+  'EVRG','LNT','NI','PNW',
+
+  // ── Real Estate ────────────────────────────────────────────────────────────
+  'PLD','AMT','EQIX','CCI','PSA','O','WELL','DLR','SPG','VICI',
+  'EXR','AVB','EQR','ESS','MAA','INVH','ARE','BXP','IRM','SBAC',
+  'KIM','REG','FRT','VTR','NNN',
+
+  // ── Materials ──────────────────────────────────────────────────────────────
+  'LIN','APD','SHW','ECL','NEM','FCX','PPG','VMC','MLM','DD',
+  'DOW','LYB','EMN','ALB','IFF','CF','MOS','IP','PKG','AVY',
+  'RPM','CE','CTVA','BALL','AMCR','FMC','CCK','HUN','OLN',
 ];
 
 const ALLOWED_ORIGINS = [
@@ -188,18 +262,21 @@ export default {
 // ── Daily S&P 500 Scanner ─────────────────────────────────────────────────────
 async function runDailyScan(env) {
   console.log('[Scanner] Starting daily S&P 500 scan...');
-  const auth = await getYahooCrumb();
   const results = [];
-  const BATCH = 8;
+  // Finnhub free plan: 60 req/min = 1 req/sec.
+  // With batch=5 stocks running in parallel and 6000ms pause after each batch:
+  //   5 Finnhub calls per batch, 1 batch every ~7s → ~43 Finnhub calls/min (safe)
+  //   Total scan time: ~99 batches × 7s ≈ 11.5 minutes (within 15-min cron limit)
+  const BATCH = 5;
+  const BATCH_DELAY = 6000;
 
   for (let i = 0; i < SP500_UNIVERSE.length; i += BATCH) {
     const batch = SP500_UNIVERSE.slice(i, i + BATCH);
-    const settled = await Promise.allSettled(batch.map(sym => scoreStock(sym, auth)));
+    const settled = await Promise.allSettled(batch.map(sym => scoreStock(sym, env)));
     for (const r of settled) {
       if (r.status === 'fulfilled' && r.value) results.push(r.value);
     }
-    // Polite delay between batches
-    if (i + BATCH < SP500_UNIVERSE.length) await sleep(400);
+    if (i + BATCH < SP500_UNIVERSE.length) await sleep(BATCH_DELAY);
   }
 
   // Sort by score, take top 20
@@ -221,153 +298,141 @@ async function runDailyScan(env) {
 }
 
 // ── Score a single stock ──────────────────────────────────────────────────────
-async function scoreStock(symbol, auth) {
+async function scoreStock(symbol, env) {
   try {
-    const [fundamentals, chart] = await Promise.all([
-      fetchFundamentals(symbol, auth),
-      fetchChart(symbol, auth),
+    const [chart, metrics] = await Promise.all([
+      fetchChart(symbol),
+      fetchFinnhubMetrics(symbol, env.FINNHUB_KEY),
     ]);
 
-    if (!fundamentals) return null;
+    // Need at least chart or Finnhub data to score
+    const m = metrics?.metric || {};
+    const hasChart   = chart && chart.closes.length >= 10;
+    const hasFinnhub = metrics != null;
+    if (!hasChart && !hasFinnhub) return null;
 
-    const f  = fundamentals.financialData        || {};
-    const ks = fundamentals.defaultKeyStatistics || {};
-    const sd = fundamentals.summaryDetail        || {};
-    const et = fundamentals.earningsTrend?.trend?.[0] || {};
-    const ap = fundamentals.assetProfile         || {};
-
-    const price    = f.currentPrice?.raw ?? sd.regularMarketPrice?.raw ?? null;
-    const name     = fundamentals.quoteType?.longName ?? fundamentals.quoteType?.shortName ?? symbol;
-    const sector   = ap.sector ?? '';
-    const marketCap = sd.marketCap?.raw ?? ks.enterpriseValue?.raw ?? null;
+    const price    = chart?.price    ?? null;
+    const name     = chart?.name     ?? symbol;
+    const changePct = chart?.changePct ?? null;
+    const high52   = chart?.high52   ?? null;
 
     // ── Growth (35%) ──────────────────────────────────────────────
-    // EPS Surprise
-    const epsActual   = et.actual?.raw   ?? null;
-    const epsEstimate = et.estimate?.raw ?? null;
-    let epsSurpriseScore = null;
-    if (epsActual != null && epsEstimate != null && Math.abs(epsEstimate) > 0.001) {
-      const surprise = (epsActual - epsEstimate) / Math.abs(epsEstimate);
-      epsSurpriseScore = clamp(50 + surprise * 200, 0, 100);
-    }
-
-    // EPS Growth
-    const epsGrowth = f.earningsGrowth?.raw ?? ks.earningsQuarterlyGrowth?.raw ?? null;
+    // EPS Growth TTM YoY (Finnhub: percent, e.g. 12.5 = 12.5%)
+    const epsGrowth = m.epsGrowthTTMYoy != null ? m.epsGrowthTTMYoy / 100 : null;
     const epsGrowthScore = epsGrowth != null
       ? clamp(50 + epsGrowth * 100, 0, 100)
       : null;
 
-    // Revenue Growth
-    const revGrowth = f.revenueGrowth?.raw ?? null;
+    // Revenue Growth TTM YoY (Finnhub: percent)
+    const revGrowth = m.revenueGrowthTTMYoy != null ? m.revenueGrowthTTMYoy / 100 : null;
     const revGrowthScore = revGrowth != null
       ? clamp(50 + revGrowth * 150, 0, 100)
       : null;
 
+    // EPS Growth 3Y annual (supplementary)
+    const epsGrowth3y = m.epsGrowth3Y != null ? m.epsGrowth3Y / 100 : null;
+    const epsGrowth3yScore = epsGrowth3y != null
+      ? clamp(50 + epsGrowth3y * 80, 0, 100)
+      : null;
+
     const growthScore = weightedAvg([
-      [epsSurpriseScore, 0.50],
-      [epsGrowthScore,   0.30],
-      [revGrowthScore,   0.20],
+      [epsGrowthScore,   0.50],
+      [revGrowthScore,   0.30],
+      [epsGrowth3yScore, 0.20],
     ]);
 
     // ── Valuation (25%) ───────────────────────────────────────────
-    // PEG Ratio (lower = better, 1.0 is fair value)
-    const peg = ks.pegRatio?.raw ?? ks.trailingPegRatio?.raw ?? null;
-    const pegScore = peg != null && peg > 0
-      ? clamp(peg <= 1 ? 90 : peg <= 2 ? 70 : peg <= 3 ? 45 : 20, 0, 100)
+    // P/E TTM (Finnhub: peTTM)
+    const pe = m.peTTM ?? null;
+    const peScore = pe != null && pe > 0
+      ? clamp(pe <= 15 ? 90 : pe <= 25 ? 75 : pe <= 35 ? 55 : pe <= 50 ? 35 : 15, 0, 100)
       : null;
 
-    // FCF Yield
-    const fcf = f.freeCashflow?.raw ?? null;
-    let fcfYieldScore = null;
-    if (fcf != null && marketCap != null && marketCap > 0) {
-      const yield_ = fcf / marketCap;
-      fcfYieldScore = clamp(yield_ >= 0.08 ? 95 : yield_ >= 0.05 ? 80 : yield_ >= 0.03 ? 65 : yield_ >= 0.01 ? 45 : yield_ >= 0 ? 30 : 15, 0, 100);
-    }
+    // P/B Annual (Finnhub: pbAnnual)
+    const pb = m.pbAnnual ?? null;
+    const pbScore = pb != null && pb > 0
+      ? clamp(pb <= 1.5 ? 90 : pb <= 3 ? 75 : pb <= 5 ? 58 : pb <= 10 ? 38 : 15, 0, 100)
+      : null;
 
-    // P/E
-    const pe = sd.trailingPE?.raw ?? f.currentPrice?.raw && f.targetMeanPrice?.raw ? null : null;
-    const trailingPE = sd.trailingPE?.raw ?? null;
-    const peScore = trailingPE != null && trailingPE > 0
-      ? clamp(trailingPE <= 15 ? 90 : trailingPE <= 25 ? 75 : trailingPE <= 35 ? 55 : trailingPE <= 50 ? 35 : 15, 0, 100)
+    // P/S TTM (Finnhub: psTTM)
+    const ps = m.psTTM ?? null;
+    const psScore = ps != null && ps > 0
+      ? clamp(ps <= 1 ? 92 : ps <= 3 ? 78 : ps <= 6 ? 60 : ps <= 12 ? 40 : 18, 0, 100)
       : null;
 
     const valuationScore = weightedAvg([
-      [pegScore,      0.50],
-      [fcfYieldScore, 0.30],
-      [peScore,       0.20],
+      [peScore, 0.50],
+      [pbScore, 0.25],
+      [psScore, 0.25],
     ]);
 
     // ── Quality (20%) ─────────────────────────────────────────────
-    // Operating Margin
-    const opMargin = f.operatingMargins?.raw ?? null;
+    // Operating Margin TTM (Finnhub: operatingMarginTTM — percent)
+    const opMarginRaw = m.operatingMarginTTM ?? null;
+    const opMargin    = opMarginRaw != null ? opMarginRaw / 100 : null;
     const opMarginScore = opMargin != null
       ? clamp(opMargin >= 0.30 ? 95 : opMargin >= 0.20 ? 80 : opMargin >= 0.10 ? 65 : opMargin >= 0.05 ? 45 : opMargin >= 0 ? 25 : 10, 0, 100)
       : null;
 
-    // Insider Ownership
-    const insiderOwn = ks.heldPercentInsiders?.raw ?? null;
-    const insiderScore = insiderOwn != null
-      ? clamp(insiderOwn >= 0.20 ? 90 : insiderOwn >= 0.10 ? 78 : insiderOwn >= 0.05 ? 65 : insiderOwn >= 0.02 ? 50 : 35, 0, 100)
-      : null;
-
-    // ROE
-    const roe = f.returnOnEquity?.raw ?? null;
+    // ROE TTM (Finnhub: roeTTM — percent)
+    const roeRaw = m.roeTTM ?? null;
+    const roe    = roeRaw != null ? roeRaw / 100 : null;
     const roeScore = roe != null
       ? clamp(roe >= 0.30 ? 95 : roe >= 0.20 ? 82 : roe >= 0.10 ? 65 : roe >= 0.05 ? 45 : roe >= 0 ? 25 : 10, 0, 100)
       : null;
 
-    // Current Ratio
-    const cr = f.currentRatio?.raw ?? null;
+    // Current Ratio Annual (Finnhub: currentRatioAnnual)
+    const cr = m.currentRatioAnnual ?? null;
     const crScore = cr != null
       ? clamp(cr >= 2.0 ? 85 : cr >= 1.5 ? 75 : cr >= 1.0 ? 60 : cr >= 0.8 ? 40 : 20, 0, 100)
       : null;
 
+    // Gross Margin TTM (Finnhub: grossMarginTTM — percent)
+    const grossMargin = m.grossMarginTTM != null ? m.grossMarginTTM / 100 : null;
+    const grossScore  = grossMargin != null
+      ? clamp(grossMargin >= 0.60 ? 95 : grossMargin >= 0.40 ? 80 : grossMargin >= 0.25 ? 65 : grossMargin >= 0.10 ? 45 : 20, 0, 100)
+      : null;
+
     const qualityScore = weightedAvg([
       [opMarginScore, 0.35],
-      [insiderScore,  0.25],
-      [roeScore,      0.25],
-      [crScore,       0.15],
+      [roeScore,      0.30],
+      [crScore,       0.20],
+      [grossScore,    0.15],
     ]);
 
     // ── Technical (20%) ───────────────────────────────────────────
-    // MA200 from chart
+    // MA200 from Yahoo chart closes
     let ma200Score = null;
-    if (chart && chart.length >= 50 && price != null) {
-      const ma200 = calcSMA(chart, 200);
+    let aboveMA200 = null;
+    if (hasChart && chart.closes.length >= 50 && price != null) {
+      const ma200 = calcSMA(chart.closes, Math.min(200, chart.closes.length));
       if (ma200 != null) {
         const pct = (price - ma200) / ma200;
         ma200Score = pct >= 0.10 ? 92 : pct >= 0.05 ? 80 : pct >= 0 ? 65 : pct >= -0.05 ? 45 : pct >= -0.15 ? 30 : 15;
+        aboveMA200 = price >= ma200;
       }
     }
 
-    // Distance from 52W High
-    const high52 = sd.fiftyTwoWeekHigh?.raw ?? null;
+    // Distance from 52W High (from Yahoo chart meta)
     let dist52Score = null;
     if (high52 != null && price != null && high52 > 0) {
-      const dist = (price - high52) / high52; // negative = below high
+      const dist = (price - high52) / high52;
       dist52Score = dist >= -0.05 ? 90 : dist >= -0.10 ? 78 : dist >= -0.20 ? 62 : dist >= -0.35 ? 45 : dist >= -0.50 ? 28 : 12;
     }
 
-    // Short Float (lower = better)
-    const shortFloat = ks.shortPercentOfFloat?.raw ?? null;
-    const shortScore = shortFloat != null
-      ? clamp(shortFloat <= 0.02 ? 90 : shortFloat <= 0.05 ? 75 : shortFloat <= 0.10 ? 58 : shortFloat <= 0.20 ? 38 : 18, 0, 100)
-      : null;
-
-    // RSI from chart
+    // RSI(14) from Yahoo chart closes
     let rsiScore = null;
-    if (chart && chart.length >= 15) {
-      const rsi = calcRSI(chart, 14);
+    if (hasChart && chart.closes.length >= 15) {
+      const rsi = calcRSI(chart.closes, 14);
       if (rsi != null) {
         rsiScore = rsi < 30 ? 65 : rsi < 40 ? 55 : rsi < 65 ? 82 : rsi < 75 ? 40 : 18;
       }
     }
 
     const technicalScore = weightedAvg([
-      [ma200Score, 0.40],
-      [dist52Score, 0.25],
-      [shortScore,  0.20],
-      [rsiScore,    0.15],
+      [ma200Score,  0.45],
+      [dist52Score, 0.35],
+      [rsiScore,    0.20],
     ]);
 
     // ── Final score ───────────────────────────────────────────────
@@ -386,13 +451,12 @@ async function scoreStock(symbol, auth) {
     return {
       symbol,
       name,
-      sector,
       score,
       rating,
       price,
-      changePct: sd.regularMarketChangePercent?.raw != null
-        ? sd.regularMarketChangePercent.raw * 100
-        : null,
+      changePct,
+      high52:     chart?.high52 ?? null,
+      aboveMA200,
       breakdown: {
         growth:    growthScore    != null ? Math.round(growthScore)    : null,
         valuation: valuationScore != null ? Math.round(valuationScore) : null,
@@ -407,40 +471,48 @@ async function scoreStock(symbol, auth) {
   }
 }
 
-// ── Fetch Yahoo Finance fundamentals ──────────────────────────────────────────
-async function fetchFundamentals(symbol, auth) {
-  const modules = 'summaryDetail,defaultKeyStatistics,financialData,assetProfile,earningsTrend,quoteType';
-  const crumbStr = auth?.crumb ? `&crumb=${encodeURIComponent(auth.crumb)}` : '';
-  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}&formatted=true&corsDomain=finance.yahoo.com${crumbStr}`;
-
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': UA,
-      'Accept': 'application/json',
-      'Accept-Language': 'en-US,en;q=0.9',
-      ...(auth?.cookieStr ? { 'Cookie': auth.cookieStr } : {}),
-    },
-  });
-  if (!res.ok) return null;
-  const json = await res.json();
-  return json?.quoteSummary?.result?.[0] ?? null;
+// ── Fetch Finnhub fundamental metrics ────────────────────────────────────────
+async function fetchFinnhubMetrics(symbol, key) {
+  if (!key) return null;
+  const url = `https://finnhub.io/api/v1/stock/metric?symbol=${encodeURIComponent(symbol)}&metric=all&token=${key}`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
 }
 
-// ── Fetch Yahoo Finance chart (close prices) ──────────────────────────────────
-async function fetchChart(symbol, auth) {
-  const crumbStr = auth?.crumb ? `&crumb=${encodeURIComponent(auth.crumb)}` : '';
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d&includePrePost=false${crumbStr}`;
-
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': UA,
-      'Accept': 'application/json',
-      ...(auth?.cookieStr ? { 'Cookie': auth.cookieStr } : {}),
-    },
-  });
-  if (!res.ok) return null;
-  const json = await res.json();
-  return (json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? []).filter(v => v != null);
+// ── Fetch Yahoo Finance chart (close prices + meta) ───────────────────────────
+async function fetchChart(symbol) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d&includePrePost=false`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': UA, 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const result = json?.chart?.result?.[0];
+    if (!result) return null;
+    const meta   = result.meta || {};
+    const closes = (result.indicators?.quote?.[0]?.close ?? []).filter(v => v != null);
+    // Yahoo v8 chart doesn't return regularMarketChangePercent — compute from last 2 closes
+    const price   = meta.regularMarketPrice ?? (closes.length ? closes[closes.length - 1] : null);
+    const prevClose = closes.length >= 2 ? closes[closes.length - 2] : null;
+    const changePct = price != null && prevClose != null && prevClose !== 0
+      ? ((price - prevClose) / prevClose) * 100
+      : null;
+    return {
+      closes,
+      price,
+      name:     meta.longName ?? meta.shortName ?? symbol,
+      changePct,
+      high52:   meta.fiftyTwoWeekHigh ?? null,
+    };
+  } catch { return null; }
 }
 
 // ── Scoring helpers ───────────────────────────────────────────────────────────

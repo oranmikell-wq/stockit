@@ -1,22 +1,23 @@
-// TopPicks.js — "Top 5 by Indicator" block for the home page
-// Uses scores saved by the results page (exact speedometer scores).
-// Falls back to fetchAllData for stocks not yet visited.
+// TopPicks.js — S&P 500 daily scan results as a 10-stock table
+// Fetches from Cloudflare Worker KV; falls back to local scoring.
 
 import { t } from '../utils/i18n.js?v=5';
 import { calcScore } from '../utils/scoring.js';
 import { fetchAllData, fetchHistory } from '../services/StockService.js';
 
-const UNIVERSE = [
+const WORKER_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/top-picks';
+const PICKS_KEY  = 'bon-toppicks-v7';        // v7: includes high52 + aboveMA200
+const PICKS_TTL  = 4 * 60 * 60 * 1000;      // 4 hours
+
+const FALLBACK_UNIVERSE = [
   'AAPL','MSFT','NVDA','GOOGL','META',
-  'JPM','V','GS',
-  'JNJ','UNH','LLY',
-  'KO','WMT','MCD',
-  'XOM','NEE','CAT',
+  'JPM','V','GS','JNJ','UNH',
 ];
 
-const PICKS_KEY = 'bon-toppicks-v5';
-const PICKS_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const getFinnhubKey = () =>
+  localStorage.getItem('bon-finnhub-key') || 'd6qup2hr01qgdhqcgpbgd6qup2hr01qgdhqcgpc0';
 
+// ── Local cache ───────────────────────────────────────────────────────────────
 function picksFromCache() {
   try {
     const raw = localStorage.getItem(PICKS_KEY);
@@ -26,135 +27,217 @@ function picksFromCache() {
     return null;
   } catch { return null; }
 }
-
 function picksToCache(picks) {
   try { localStorage.setItem(PICKS_KEY, JSON.stringify({ picks, ts: Date.now() })); } catch {}
 }
 
-// Read score saved by the results page speedometer.
-// No TTL — always prefer the exact speedometer score over a fresh skipFund recompute.
+// ── Worker fetch ──────────────────────────────────────────────────────────────
+async function fetchWorkerPicks() {
+  const res = await fetch(WORKER_URL, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  if (!json?.picks?.length) throw new Error('No picks in response');
+  return json.picks.slice(0, 10);
+}
+
+// ── Local fallback ────────────────────────────────────────────────────────────
 function getCachedScore(symbol) {
   try {
     const raw = localStorage.getItem(`bon-score-${symbol.toUpperCase()}`);
     if (!raw) return null;
-    const { score, rating } = JSON.parse(raw);
-    return { score, rating };
+    return JSON.parse(raw);
   } catch { return null; }
 }
 
-async function scoreUniverse() {
-  const BATCH = 5;
+async function localFallback() {
   const results = [];
-
-  for (let i = 0; i < UNIVERSE.length; i += BATCH) {
-    const batch = UNIVERSE.slice(i, i + BATCH);
-    const settled = await Promise.allSettled(batch.map(async sym => {
-      // Use exact score from results page if available
+  await Promise.allSettled(FALLBACK_UNIVERSE.map(async sym => {
+    try {
       const cached = getCachedScore(sym);
+      const { data } = await fetchAllData(sym, true);
+      if (!data) return;
       if (cached) {
-        // Still need price/name — use fetchAllData (hits 15-min cache)
-        const { data } = await fetchAllData(sym, true);
-        if (!data) return null;
-        return { symbol: sym, name: data.name ?? sym, score: cached.score, rating: cached.rating, price: data.price, changePct: data.changePct };
+        results.push({ symbol: sym, name: data.name ?? sym, score: cached.score, rating: cached.rating,
+          price: data.price, changePct: data.changePct, high52: data.high52 ?? null, aboveMA200: null });
+        return;
       }
-
-      // Fallback: compute from scratch with full fundamentals (stock never visited)
-      const [{ data }, history] = await Promise.all([
-        fetchAllData(sym, false),
-        fetchHistory(sym, '5Y').catch(() => []),
-      ]);
-      if (!data) return null;
-      const scored = calcScore(data, history ?? [], {});
-      if (scored.score == null) return null;
-      // Save so future loads use this consistent score (until speedometer overwrites it)
-      try { localStorage.setItem(`bon-score-${sym.toUpperCase()}`, JSON.stringify({ score: scored.score, rating: scored.rating, ts: Date.now() })); } catch {}
-      return { symbol: sym, name: data.name ?? sym, score: scored.score, rating: scored.rating, price: data.price, changePct: data.changePct };
-    }));
-
-    settled.forEach(res => {
-      if (res.status === 'fulfilled' && res.value) results.push(res.value);
-    });
-
-    if (i + BATCH < UNIVERSE.length) await new Promise(r => setTimeout(r, 300));
-  }
-
-  return results.sort((a, b) => b.score - a.score).slice(0, 5);
+      const history = await fetchHistory(sym, '5Y').catch(() => []);
+      const scored  = calcScore(data, history ?? [], {});
+      if (scored.score == null) return;
+      results.push({ symbol: sym, name: data.name ?? sym, score: scored.score, rating: scored.rating,
+        price: data.price, changePct: data.changePct, high52: data.high52 ?? null, aboveMA200: null });
+    } catch {}
+  }));
+  return results.sort((a, b) => b.score - a.score).slice(0, 10);
 }
 
-const BADGE = {
-  buy:  { cls: 'tp-badge-buy' },
-  wait: { cls: 'tp-badge-wait' },
-  sell: { cls: 'tp-badge-sell' },
-};
+// ── Earnings dates from Finnhub (async, non-blocking) ─────────────────────────
+async function fetchEarningsDates(symbols) {
+  const key  = getFinnhubKey();
+  const from = new Date().toISOString().slice(0, 10);
+  const to   = new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10);
+  const dates = {};
+  await Promise.allSettled(symbols.map(async sym => {
+    try {
+      const url = `https://finnhub.io/api/v1/calendar/earnings?symbol=${sym}&from=${from}&to=${to}&token=${key}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) return;
+      const json = await res.json();
+      const next = json?.earningsCalendar?.[0];
+      if (next?.date) dates[sym] = next.date;
+    } catch {}
+  }));
+  return dates;
+}
 
-function renderChip(pick) {
-  const b = BADGE[pick.rating] || BADGE.wait;
-  const sign = pick.changePct >= 0 ? '+' : '';
-  const chg = pick.changePct != null ? `${sign}${pick.changePct.toFixed(2)}%` : '';
-  const chgCls = pick.changePct >= 0 ? 'tp-chg-up' : 'tp-chg-down';
-  const shortName = pick.name.length > 18 ? pick.name.slice(0, 16) + '…' : pick.name;
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtPrice(p) {
+  if (p == null) return '-';
+  return '$' + p.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
 
-  const chip = document.createElement('div');
-  chip.className = 'tp-chip';
-  chip.setAttribute('role', 'button');
-  chip.setAttribute('tabindex', '0');
-  chip.dataset.symbol = pick.symbol;
+function fmtDist(price, high52) {
+  if (price == null || high52 == null || high52 === 0) return '-';
+  const pct = ((price - high52) / high52) * 100;
+  return (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+}
 
-  chip.innerHTML = `
-    <div class="tp-chip-top">
+function fmtEarnings(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d)) return null;
+  const diffDays = Math.round((d - Date.now()) / 864e5);
+  const label = d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+  return { label, soon: diffDays >= 0 && diffDays <= 14 };
+}
+
+// ── Render single row ─────────────────────────────────────────────────────────
+function renderRow(pick, earningsDate) {
+  const badgeCls = pick.rating === 'buy' ? 'tp-badge-buy'
+                 : pick.rating === 'sell' ? 'tp-badge-sell' : 'tp-badge-wait';
+
+  const chgVal = pick.changePct;
+  const chgTxt = chgVal != null ? (chgVal >= 0 ? '+' : '') + chgVal.toFixed(2) + '%' : '-';
+  const chgCls = chgVal != null ? (chgVal >= 0 ? 'tp-chg-up' : 'tp-chg-down') : '';
+
+  const distTxt = fmtDist(pick.price, pick.high52);
+  const distCls = pick.price != null && pick.high52 != null
+    ? (pick.price >= pick.high52 ? 'tp-chg-up' : 'tp-chg-down') : '';
+
+  const maTxt = pick.aboveMA200 === true  ? '<span class="tp-ma-yes">✓</span>'
+              : pick.aboveMA200 === false ? '<span class="tp-ma-no">✗</span>'
+              :                            '<span class="tp-ma-na">-</span>';
+
+  const earn    = fmtEarnings(earningsDate);
+  const earnHtml = earn
+    ? `<span class="tp-earn${earn.soon ? ' soon' : ''}">${earn.label}</span>`
+    : `<span class="tp-earn">-</span>`;
+
+  const shortName = pick.name?.length > 22
+    ? pick.name.slice(0, 20) + '…' : (pick.name ?? pick.symbol);
+
+  const tr = document.createElement('tr');
+  tr.dataset.symbol = pick.symbol;
+  tr.setAttribute('tabindex', '0');
+  tr.innerHTML = `
+    <td class="tp-td-sym">
       <span class="tp-sym">${pick.symbol}</span>
-      <span class="tp-badge ${b.cls}">${pick.score}</span>
-    </div>
-    <div class="tp-name">${shortName}</div>
-    <div class="tp-bottom">
-      <span class="tp-price">${pick.price != null ? '$' + pick.price.toLocaleString(undefined, {maximumFractionDigits: 2}) : ''}</span>
-      <span class="tp-chg ${chgCls}">${chg}</span>
-    </div>`;
+      <span class="tp-name">${shortName}</span>
+    </td>
+    <td class="tp-td-center"><span class="tp-badge ${badgeCls}">${pick.score}</span></td>
+    <td class="tp-td-num">${fmtPrice(pick.price)}</td>
+    <td class="tp-td-num">${fmtPrice(pick.high52)}</td>
+    <td class="tp-td-num ${distCls}">${distTxt}</td>
+    <td class="tp-td-num ${chgCls}">${chgTxt}</td>
+    <td class="tp-td-center">${maTxt}</td>
+    <td class="tp-td-center">${earnHtml}</td>`;
 
-  return chip;
+  const nav = () => { if (typeof window.navigateTo === 'function') window.navigateTo('results', pick.symbol); };
+  tr.addEventListener('click', nav);
+  tr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nav(); } });
+  return tr;
 }
 
+// ── Main render ───────────────────────────────────────────────────────────────
 export async function renderTopPicks(container) {
   if (!container) return;
+
+  const isRtl = document.documentElement.dir === 'rtl' || document.documentElement.lang === 'he';
 
   container.innerHTML = `
     <div class="sidebar-card tp-card">
       <h2 class="section-title card-title">${t('topPicksTitle')}</h2>
-      <div id="tp-list" class="tp-list">
-        ${[...Array(5)].map(() => '<div class="tp-chip tp-skeleton"></div>').join('')}
+      <div class="tp-table-wrap">
+        <table class="tp-table">
+          <thead>
+            <tr>
+              <th>מניה</th>
+              <th>ציון</th>
+              <th>מחיר</th>
+              <th>שיא 52ש</th>
+              <th>מרחק</th>
+              <th>שינוי</th>
+              <th>MA200</th>
+              <th>דיווח</th>
+            </tr>
+          </thead>
+          <tbody id="tp-tbody">
+            ${[...Array(10)].map(() => `
+              <tr class="tp-skel-row">
+                <td colspan="8"><div class="tp-skel-line"></div></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
       </div>
       <p class="tp-disclaimer">${t('topPicksDisclaimer')}</p>
     </div>`;
 
-  const list = container.querySelector('#tp-list');
+  const tbody = container.querySelector('#tp-tbody');
 
   try {
     let picks = picksFromCache();
+
     if (!picks) {
-      picks = await scoreUniverse();
-      if (picks.length > 0) picksToCache(picks);
+      try {
+        picks = await fetchWorkerPicks();
+        if (picks?.length) picksToCache(picks);
+      } catch (e) {
+        console.warn('[TopPicks] Worker unavailable, local fallback:', e.message);
+        picks = await localFallback();
+        if (picks?.length) picksToCache(picks);
+      }
     }
 
-    if (!picks || picks.length === 0) {
-      list.innerHTML = `<p class="tp-no-data">${t('noData')}</p>`;
+    if (!picks?.length) {
+      tbody.innerHTML = `<tr><td colspan="8" class="tp-no-data">${t('noData')}</td></tr>`;
       return;
     }
 
-    list.innerHTML = '';
+    // Render rows immediately (no earnings yet)
+    tbody.innerHTML = '';
+    const rowMap = {};
     picks.forEach(pick => {
-      const chip = renderChip(pick);
-      chip.addEventListener('click', () => {
-        if (typeof window.navigateTo === 'function') window.navigateTo('results', pick.symbol);
-      });
-      chip.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          if (typeof window.navigateTo === 'function') window.navigateTo('results', pick.symbol);
+      const tr = renderRow(pick, null);
+      rowMap[pick.symbol] = tr;
+      tbody.appendChild(tr);
+    });
+
+    // Fetch earnings async — update cells when ready
+    fetchEarningsDates(picks.map(p => p.symbol)).then(dates => {
+      Object.entries(dates).forEach(([sym, dateStr]) => {
+        const tr = rowMap[sym];
+        if (!tr) return;
+        const cell = tr.querySelector('.tp-earn');
+        if (!cell) return;
+        const earn = fmtEarnings(dateStr);
+        if (earn) {
+          cell.textContent = earn.label;
+          if (earn.soon) cell.classList.add('soon');
         }
       });
-      list.appendChild(chip);
     });
+
   } catch {
-    list.innerHTML = `<p class="tp-no-data">${t('noData')}</p>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="tp-no-data">${t('noData')}</td></tr>`;
   }
 }
