@@ -3,9 +3,10 @@
   "configurations": [
     {
       "name": "BuyorNot (Python)",
-      "runtimeExecutable": "/usr/local/bin/npx",
-      "runtimeArgs": ["serve", "-l", "3000", "/Users/oranmikel/Downloads/newapp"],
-      "port": 3000
+      "runtimeExecutable": "/usr/bin/python3",
+      "runtimeArgs": ["/Users/oranmikel/Downloads/newapp/serve.py", "${PORT}"],
+      "cwd": "/Users/oranmikel/Downloads/newapp",
+      "autoPort": true
     },
     {
       "name": "BuyorNot (npx serve)",
