@@ -171,14 +171,14 @@ export async function renderTopPicks(container) {
         <table class="tp-table">
           <thead>
             <tr>
-              <th>מניה</th>
-              <th>ציון</th>
-              <th>מחיר</th>
-              <th>שיא 52ש</th>
-              <th>מרחק</th>
-              <th>שינוי</th>
-              <th>MA200</th>
-              <th>דיווח</th>
+              <th>${t('tpColStock')}</th>
+              <th>${t('tpColScore')}</th>
+              <th>${t('tpColPrice')}</th>
+              <th>${t('tpColHigh52')}</th>
+              <th>${t('tpColDist')}</th>
+              <th>${t('tpColChange')}</th>
+              <th>${t('tpColMa200')}</th>
+              <th>${t('tpColReport')}</th>
             </tr>
           </thead>
           <tbody id="tp-tbody">
