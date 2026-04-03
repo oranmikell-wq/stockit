@@ -102,9 +102,9 @@
         <button class="tb-nav-btn nav-btn" data-page="market" title="Market Analysis">
           <svg width="20" height="20" viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="3.5" height="6" rx="0.6" stroke="currentColor" stroke-width="1.5"/><rect x="6.3" y="5" width="3.5" height="10" rx="0.6" stroke="currentColor" stroke-width="1.5"/><rect x="11.5" y="1" width="3.5" height="14" rx="0.6" stroke="currentColor" stroke-width="1.5"/></svg>
         </button>
-        <button class="tb-nav-btn nav-btn" data-page="about" title="About">
+        <a class="tb-nav-btn" href="/about.html" title="About">
           <svg width="20" height="20" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.6"/><line x1="8" y1="7" x2="8" y2="11.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="4.8" r="0.9" fill="currentColor"/></svg>
-        </button>
+        </a>
       </nav>
     </div>
 
@@ -530,141 +530,6 @@
   </div>
 
   <!-- ===== WATCHLIST PAGE ===== -->
-  <!-- ===== ABOUT US PAGE ===== -->
-  <div id="page-about" class="page">
-    <button id="btn-back-about" class="icon-btn back-btn page-back-btn">←</button>
-    <div class="about-content">
-      <div class="about-logo">About Us</div>
-
-      <div class="about-section">
-        <p class="about-text">Bull Therapy is a free stock analysis platform designed for everyone — from first-time investors to experienced traders. Our mission is to make professional-grade stock analysis simple, accessible, and actionable.</p>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">How We Score Stocks</h2>
-        <p class="about-text">Every stock is evaluated using a weighted model across four categories. Each category is scored 0–100 and combined into a final signal: 🟢 Buy (66–100) / 🟡 Wait (41–65) / 🔴 Avoid (0–40).</p>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">Growth — 35%</h2>
-        <p class="about-text">We weight growth as the largest factor because sustained earnings and revenue expansion is the strongest long-term driver of stock performance.</p>
-        <ul class="privacy-list">
-          <li><strong>EPS Surprise (50%)</strong> — Did the company beat analyst earnings estimates? Positive surprises signal that management is executing better than expected and often trigger sustained re-ratings.</li>
-          <li><strong>EPS Growth (30%)</strong> — Year-over-year earnings per share growth. Companies that consistently grow EPS compound investor returns over time.</li>
-          <li><strong>Revenue Growth (20%)</strong> — Top-line growth reflects genuine business expansion, not just cost-cutting or financial engineering.</li>
-        </ul>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">Valuation — 25%</h2>
-        <p class="about-text">A great business at the wrong price is a bad investment. We analyze valuation through three lenses that together reveal whether the market is pricing in realistic or unrealistic expectations.</p>
-        <ul class="privacy-list">
-          <li><strong>PEG Ratio (50%)</strong> — Price/Earnings-to-Growth. A PEG below 1 suggests the stock is cheap relative to its growth rate. This is the single most useful valuation signal for growth companies.</li>
-          <li><strong>FCF Yield (30%)</strong> — Free cash flow yield measures how much cash a company generates relative to its market cap. High FCF yield means the business is producing real cash, not just accounting profits.</li>
-          <li><strong>P/E Ratio (20%)</strong> — The classic price-to-earnings ratio, benchmarked against sector averages to account for industry differences.</li>
-        </ul>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">Quality — 20%</h2>
-        <p class="about-text">Quality filters out companies with weak fundamentals that may look attractive on price alone. We look for businesses with durable competitive advantages.</p>
-        <ul class="privacy-list">
-          <li><strong>Operating Margin (35%)</strong> — High and stable operating margins indicate pricing power and operational efficiency — hallmarks of a durable business.</li>
-          <li><strong>Insider Ownership (25%)</strong> — When executives and directors hold significant equity, their incentives are aligned with shareholders.</li>
-          <li><strong>Return on Equity (25%)</strong> — ROE measures how efficiently a company generates profit from shareholders' capital. Consistently high ROE often indicates a competitive moat.</li>
-          <li><strong>Current Ratio (15%)</strong> — A measure of short-term financial health. We flag companies that may struggle to meet near-term obligations.</li>
-        </ul>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">Technical — 20%</h2>
-        <p class="about-text">Technical factors are secondary signals. We use them to assess entry timing and trend strength — not as standalone buy signals.</p>
-        <ul class="privacy-list">
-          <li><strong>MA200 Position (40%)</strong> — Whether the stock is trading above its 200-day moving average. This is the most widely-followed trend indicator among institutional investors.</li>
-          <li><strong>Distance from 52-Week High (25%)</strong> — Context for current price. A stock near its 52-week high in a healthy uptrend is very different from one that bounced after a 60% crash.</li>
-          <li><strong>Short Float (20%)</strong> — High short interest can indicate bearish sentiment or set up a short squeeze. We use it as a risk signal.</li>
-          <li><strong>RSI (15%)</strong> — Relative Strength Index identifies overbought (RSI &gt; 70) and oversold (RSI &lt; 30) conditions. Used to refine entry timing.</li>
-        </ul>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">What We Don't Do</h2>
-        <p class="about-text">Bull Therapy does not predict the future or guarantee returns. Markets are unpredictable, and no model captures every risk. Our scores are a structured starting point for your own research — not a substitute for it. Always read the company's filings, understand the business, and consult a qualified financial advisor before investing.</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== PRIVACY PAGE ===== -->
-  <div id="page-privacy" class="page">
-    <button onclick="navigateTo('home'); return false;" class="icon-btn back-btn page-back-btn">←</button>
-    <div class="about-content">
-      <div class="about-logo">Privacy Policy</div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">1. Overview</h2>
-        <p class="about-text">Bull Therapy ("we", "our", "us") operates the website at <strong>bulltherapy.com</strong>. This Privacy Policy explains how we handle information when you use our service. We are committed to protecting your privacy.</p>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">2. Information We Collect</h2>
-        <p class="about-text">We do <strong>not</strong> collect, store, or transmit any personal information to our servers. Bull Therapy operates entirely in your browser. The following data is stored <strong>locally on your device only</strong> (localStorage):</p>
-        <ul class="privacy-list">
-          <li>Search history (stock symbols you have searched)</li>
-          <li>Watchlist (stocks you have saved)</li>
-          <li>Display preferences (theme: light/dark, language: EN/HE)</li>
-          <li>Cached stock data (to reduce API calls, expires after 15 minutes)</li>
-          <li>Optional API keys you choose to enter (stored only on your device)</li>
-        </ul>
-        <p class="about-text">You can clear this data at any time by clearing your browser's local storage.</p>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">3. Third-Party Data Sources</h2>
-        <p class="about-text">To provide stock analysis, we make requests to the following third-party APIs. Please review their respective privacy policies:</p>
-        <ul class="privacy-list">
-          <li><strong>Yahoo Finance</strong> — market price data</li>
-          <li><strong>Finnhub</strong> (finnhub.io) — analyst recommendations, trending stocks</li>
-          <li><strong>Financial Modeling Prep</strong> (financialmodelingprep.com) — earnings & revenue data</li>
-          <li><strong>CoinGecko</strong> (coingecko.com) — cryptocurrency prices</li>
-          <li><strong>CNN Business</strong> — Fear &amp; Greed index</li>
-          <li><strong>New York Federal Reserve</strong> — interest rate data</li>
-          <li><strong>Alpha Vantage</strong> — CPI / inflation data</li>
-        </ul>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">4. Advertising — Google AdSense</h2>
-        <p class="about-text">We use <strong>Google AdSense</strong> to display advertisements. Google may use cookies and similar technologies to serve ads based on your prior visits to this and other websites.</p>
-        <p class="about-text">Google's use of advertising cookies enables it and its partners to serve ads based on your visit to our site and/or other sites on the Internet. You may opt out of personalized advertising by visiting <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener" class="privacy-link">Google Ads Settings</a>.</p>
-        <p class="about-text">For more information, see <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" class="privacy-link">Google's Privacy Policy</a>.</p>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">5. Cookies &amp; Local Storage</h2>
-        <p class="about-text">Bull Therapy uses <strong>localStorage</strong> (not cookies) to store your preferences, watchlist, and search history locally on your device — this data never leaves your browser. Google AdSense and third-party services may set cookies on your device for advertising and analytics purposes. You can manage cookies through your browser settings, and you may opt out of personalized ads via your consent preferences on this site.</p>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">6. Children's Privacy</h2>
-        <p class="about-text">Our service is not directed to individuals under the age of 13. We do not knowingly collect personal information from children.</p>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">7. Disclaimer</h2>
-        <p class="about-text">The information provided by Bull Therapy is for <strong>informational and educational purposes only</strong>. Nothing on this site constitutes financial advice. Always consult a qualified financial advisor before making investment decisions.</p>
-      </div>
-
-      <div class="about-section">
-        <h2 class="privacy-h2">8. Contact</h2>
-        <p class="about-text">If you have any questions about this Privacy Policy, please contact us at: <a href="mailto:info@bulltherapy.com" class="privacy-link">info@bulltherapy.com</a></p>
-      </div>
-
-      <div class="about-section">
-        <p class="about-text" style="color: var(--text-3); font-size: 12px;">Last updated: March 2026</p>
-      </div>
-    </div>
-  </div>
-
   <!-- ===== WATCHLIST SIDEBAR ===== -->
   <div id="wl-sidebar-overlay" class="wl-sidebar-overlay" onclick="window.closeWatchlistSidebar()"></div>
   <aside id="wl-sidebar" class="wl-sidebar" aria-label="Watchlist">
@@ -717,7 +582,7 @@
     <div class="cookie-content">
       <p class="cookie-text">
         <span data-i18n="cookieText">We use cookies to personalize ads and analyze traffic.</span>
-        <a href="#" onclick="navigateTo('privacy');document.getElementById('cookie-banner').style.display='none';return false;" class="cookie-policy-link" data-i18n="cookiePrivacyLink">Privacy Policy</a>
+        <a href="/privacy.html" class="cookie-policy-link" data-i18n="cookiePrivacyLink">Privacy Policy</a>
       </p>
       <div class="cookie-actions">
         <button id="cookie-decline" class="cookie-btn cookie-btn-decline" data-i18n="cookieDecline">Decline</button>
