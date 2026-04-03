@@ -4,3 +4,14 @@ compatibility_date = "2024-01-01"
 
 [placement]
 mode = "smart"
+
+# KV namespace for storing daily top picks
+# To create: wrangler kv:namespace create TOP_PICKS_KV
+# Then paste the resulting id below
+[[kv_namespaces]]
+binding = "TOP_PICKS_KV"
+id = "PASTE_YOUR_KV_ID_HERE"
+
+# Cron: run every day at 03:00 UTC (after US market close)
+[triggers]
+crons = ["0 3 * * *"]
