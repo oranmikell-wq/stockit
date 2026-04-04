@@ -2,7 +2,7 @@
 
 import { fetchAllData, fetchHistory } from '../services/StockService.js';
 import { calcScore } from '../utils/scoring.js';
-import { t } from '../utils/i18n.js?v=5';
+import { t } from '../utils/i18n.js?v=6';
 
 export function getWatchlist() {
   try { return JSON.parse(localStorage.getItem('bon-watchlist') || '[]'); }

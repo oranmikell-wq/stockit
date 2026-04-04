@@ -1,6 +1,6 @@
 // NewsRenderer.js — renders latest news + AI Insight card
 
-import { t } from '../utils/i18n.js?v=5';
+import { t } from '../utils/i18n.js?v=6';
 import { getAINewsInsight, hasGeminiKey, setGeminiKey } from '../services/AIService.js';
 
 // ── Standard news list ───────────────────────────────────

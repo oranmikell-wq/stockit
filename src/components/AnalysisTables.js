@@ -2,7 +2,7 @@
 // Renders four family-based analysis tables: Growth | Valuation | Quality | Technical
 // Each section header shows the family weight and family score (0–100).
 
-import { t } from '../utils/i18n.js?v=5';
+import { t } from '../utils/i18n.js?v=6';
 import { calcSMA, yahooChart } from '../services/StockService.js';
 import { getSectorKey, FAMILY_WEIGHTS, GROWTH_WEIGHTS, VALUATION_WEIGHTS, QUALITY_WEIGHTS, TECHNICAL_WEIGHTS } from '../utils/scoring.js';
 import { initInfoButtons } from './InfoPopup.js';

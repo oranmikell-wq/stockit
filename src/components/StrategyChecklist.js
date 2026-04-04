@@ -2,7 +2,7 @@
 
 import { calcSMA, yahooChart } from '../services/StockService.js';
 import { getSectorKey, SECTOR_PS } from '../utils/scoring.js';
-import { t } from '../utils/i18n.js?v=5';
+import { t } from '../utils/i18n.js?v=6';
 import { initInfoButtons } from './InfoPopup.js';
 
 // Industry average P/S ratios (midpoint of sector benchmarks)

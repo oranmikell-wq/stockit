@@ -1,6 +1,6 @@
 // QuickScore.js — 4-metric quick-score widget with weights
 
-import { t } from '../utils/i18n.js?v=5';
+import { t } from '../utils/i18n.js?v=6';
 import { calcSMA } from '../services/StockService.js';
 import { initInfoButtons } from './InfoPopup.js';
 

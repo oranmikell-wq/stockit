@@ -1,6 +1,6 @@
 // main.js — entry point, orchestrates all modules
 
-import { applyTranslations, toggleLang, t } from './utils/i18n.js?v=5';
+import { applyTranslations, toggleLang, t } from './utils/i18n.js?v=6';
 import { fetchAllData, fetchHistory, fetchStockFullData, fetchIndexQuote, fetchProxy, fetchProxyRaw } from './services/StockService.js';
 import { calcScore } from './utils/scoring.js';
 import { renderSummaryGauge } from './components/SummaryGauge.js';

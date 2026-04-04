@@ -1,6 +1,6 @@
 // SummaryGauge.js — Animated SVG speedometer gauge
 
-import { t } from '../utils/i18n.js?v=5';
+import { t } from '../utils/i18n.js?v=6';
 import { initInfoButtons } from './InfoPopup.js';
 
 // ── SVG geometry constants ────────────────────────────────

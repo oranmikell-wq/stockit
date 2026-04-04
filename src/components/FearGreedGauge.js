@@ -1,7 +1,7 @@
 // FearGreedGauge.js — CNN-style Fear & Greed speedometer gauge
 
 import { fetchProxy } from '../services/StockService.js';
-import { t } from '../utils/i18n.js?v=5';
+import { t } from '../utils/i18n.js?v=6';
 
 const FNG_URL = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
 

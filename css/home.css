@@ -1298,7 +1298,7 @@
 /* ===== HOME NEWS ===== */
 .home-news-section { width: 100%; }
 
-.home-news-card { padding: 0 !important; overflow: hidden; }
+.home-news-card { padding: 0 !important; overflow: hidden; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); }
 
 .home-news-tabs {
   display: flex;
@@ -1482,8 +1482,12 @@
   padding: 5px 8px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
-  text-align: right;
+  text-align: right; /* numeric columns right-aligned by default */
 }
+/* Stock column — left-aligned to match data cells */
+.tp-table thead th.tp-th-sym { text-align: left; }
+/* Center-aligned columns: Score, MA200, Earnings */
+.tp-table thead th.tp-th-center { text-align: center; }
 
 .tp-table tbody tr {
   border-bottom: 1px solid var(--border);
@@ -1580,12 +1584,15 @@
   padding: 20px 0;
 }
 
-/* Mobile: hide low-priority columns */
+/* Mobile: hide low-priority columns (9-column layout) */
 @media (max-width: 600px) {
+  /* Hide ATH (col 4), Market Cap (col 7), MA200 (col 8) on mobile */
   .tp-table thead th:nth-child(4),
-  .tp-table td:nth-child(4) { display: none; } /* שיא 52ש */
+  .tp-table td:nth-child(4) { display: none; } /* ATH */
   .tp-table thead th:nth-child(7),
-  .tp-table td:nth-child(7) { display: none; } /* MA200 */
+  .tp-table td:nth-child(7) { display: none; } /* Market Cap */
+  .tp-table thead th:nth-child(8),
+  .tp-table td:nth-child(8) { display: none; } /* MA200 */
 }
 
 /* ═══════════════════════════════════════════════════════════

@@ -1,6 +1,6 @@
 // useHistory.js — search history management
 
-import { t } from '../utils/i18n.js?v=5';
+import { t } from '../utils/i18n.js?v=6';
 
 export function getHistory() {
   try { return JSON.parse(localStorage.getItem('bon-history') || '[]'); }

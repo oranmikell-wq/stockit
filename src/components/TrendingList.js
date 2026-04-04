@@ -2,7 +2,7 @@
 
 import { fetchStockFullData, fetchTrending, fetchAllData, fetchHistory } from '../services/StockService.js';
 import { calcScore } from '../utils/scoring.js';
-import { t } from '../utils/i18n.js?v=5';
+import { t } from '../utils/i18n.js?v=6';
 
 const TRENDING_NAMES = {
   AAPL: 'Apple Inc.',

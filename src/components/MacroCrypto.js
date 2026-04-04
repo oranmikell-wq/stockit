@@ -1,7 +1,7 @@
 // MacroCrypto.js — US Macro (FRED), Crypto Prices (CoinGecko), Upcoming Economic Events (Finnhub)
 /* global AbortSignal */
 
-import { t } from '../utils/i18n.js?v=5';
+import { t } from '../utils/i18n.js?v=6';
 
 // ── Proxy helpers ──────────────────────────────────────────────────────────
 // allorigins works best for FRED CSV (corsproxy blocks CSV on free plan)

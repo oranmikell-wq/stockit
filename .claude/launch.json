@@ -4,15 +4,9 @@
     {
       "name": "BuyorNot (Python)",
       "runtimeExecutable": "/usr/bin/python3",
-      "runtimeArgs": ["/Users/oranmikel/Downloads/newapp/serve.py", "${PORT}"],
+      "runtimeArgs": ["-m", "http.server", "3001"],
       "cwd": "/Users/oranmikel/Downloads/newapp",
-      "autoPort": true
-    },
-    {
-      "name": "BuyorNot (npx serve)",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-l", "3000", "."],
-      "port": 3000
+      "port": 3001
     }
   ]
 }

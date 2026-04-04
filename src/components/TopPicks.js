@@ -1,12 +1,12 @@
 // TopPicks.js — S&P 500 daily scan results as a 10-stock table
 // Fetches from Cloudflare Worker KV; falls back to local scoring.
 
-import { t } from '../utils/i18n.js?v=5';
+import { t } from '../utils/i18n.js?v=6';
 import { calcScore } from '../utils/scoring.js';
 import { fetchAllData, fetchHistory } from '../services/StockService.js';
 
 const WORKER_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/top-picks';
-const PICKS_KEY  = 'bon-toppicks-v7';        // v7: includes high52 + aboveMA200
+const PICKS_KEY  = 'bon-toppicks-v8';        // v8: includes marketCap, ATH label
 const PICKS_TTL  = 4 * 60 * 60 * 1000;      // 4 hours
 
 const FALLBACK_UNIVERSE = [
@@ -96,6 +96,14 @@ function fmtPrice(p) {
   return '$' + p.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+function fmtMarketCap(mcM) {
+  // mcM is in millions USD (from Finnhub)
+  if (mcM == null || mcM <= 0) return '-';
+  if (mcM >= 1_000_000) return '$' + (mcM / 1_000_000).toFixed(2) + 'T';
+  if (mcM >= 1_000)     return '$' + (mcM / 1_000).toFixed(1) + 'B';
+  return '$' + mcM.toFixed(0) + 'M';
+}
+
 function fmtDist(price, high52) {
   if (price == null || high52 == null || high52 === 0) return '-';
   const pct = ((price - high52) / high52) * 100;
@@ -151,6 +159,7 @@ function renderRow(pick, earningsDate) {
     <td class="tp-td-num">${fmtPrice(pick.high52)}</td>
     <td class="tp-td-num ${distCls}">${distTxt}</td>
     <td class="tp-td-num ${chgCls}">${chgTxt}</td>
+    <td class="tp-td-num">${fmtMarketCap(pick.marketCap ?? null)}</td>
     <td class="tp-td-center">${maTxt}</td>
     <td class="tp-td-center">${earnHtml}</td>`;
 
@@ -173,20 +182,21 @@ export async function renderTopPicks(container) {
         <table class="tp-table">
           <thead>
             <tr>
-              <th>${t('tpColStock')}</th>
-              <th>${t('tpColScore')}</th>
+              <th class="tp-th-sym">${t('tpColStock')}</th>
+              <th class="tp-th-center">${t('tpColScore')}</th>
               <th>${t('tpColPrice')}</th>
               <th>${t('tpColHigh52')}</th>
               <th>${t('tpColDist')}</th>
               <th>${t('tpColChange')}</th>
-              <th>${t('tpColMa200')}</th>
-              <th>${t('tpColReport')}</th>
+              <th>${t('tpColMarketCap')}</th>
+              <th class="tp-th-center">${t('tpColMa200')}</th>
+              <th class="tp-th-center">${t('tpColReport')}</th>
             </tr>
           </thead>
           <tbody id="tp-tbody">
             ${[...Array(10)].map(() => `
               <tr class="tp-skel-row">
-                <td colspan="8"><div class="tp-skel-line"></div></td>
+                <td colspan="9"><div class="tp-skel-line"></div></td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -211,7 +221,7 @@ export async function renderTopPicks(container) {
     }
 
     if (!picks?.length) {
-      tbody.innerHTML = `<tr><td colspan="8" class="tp-no-data">${t('noData')}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="tp-no-data">${t('noData')}</td></tr>`;
       return;
     }
 
@@ -240,6 +250,6 @@ export async function renderTopPicks(container) {
     });
 
   } catch {
-    tbody.innerHTML = `<tr><td colspan="8" class="tp-no-data">${t('noData')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="tp-no-data">${t('noData')}</td></tr>`;
   }
 }

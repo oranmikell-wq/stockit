@@ -1,6 +1,6 @@
 // CriteriaTable.js — renders the detailed criteria breakdown table
 
-import { t } from '../utils/i18n.js?v=5';
+import { t } from '../utils/i18n.js?v=6';
 
 export function renderCriteriaTable(scored, data) {
   const container = document.getElementById('criteria-table');

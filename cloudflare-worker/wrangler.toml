@@ -10,7 +10,7 @@ mode = "smart"
 # Then paste the resulting id below
 [[kv_namespaces]]
 binding = "TOP_PICKS_KV"
-id = "PASTE_YOUR_KV_ID_HERE"
+id = "a43c22764cb748c1858abca757cd2213"
 
 # Cron: run every day at 03:00 UTC (after US market close)
 [triggers]

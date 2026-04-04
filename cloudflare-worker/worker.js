@@ -143,7 +143,7 @@ const ALLOWED_HOSTS = [
 ];
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const KV_KEY = 'top-picks-v1';
+const KV_KEY = 'top-picks-v2'; // v2: includes marketCap
 
 // ── Main export ───────────────────────────────────────────────────────────────
 export default {
@@ -311,10 +311,12 @@ async function scoreStock(symbol, env) {
     const hasFinnhub = metrics != null;
     if (!hasChart && !hasFinnhub) return null;
 
-    const price    = chart?.price    ?? null;
-    const name     = chart?.name     ?? symbol;
-    const changePct = chart?.changePct ?? null;
-    const high52   = chart?.high52   ?? null;
+    const price     = chart?.price     ?? null;
+    const name      = chart?.name      ?? symbol;
+    const changePct = chart?.changePct  ?? null;
+    const high52    = chart?.high52    ?? null;
+    // Market cap from Finnhub (in millions USD)
+    const marketCap = m.marketCapitalization ?? null;
 
     // ── Growth (35%) ──────────────────────────────────────────────
     // EPS Growth TTM YoY (Finnhub: percent, e.g. 12.5 = 12.5%)
@@ -456,6 +458,7 @@ async function scoreStock(symbol, env) {
       price,
       changePct,
       high52:     chart?.high52 ?? null,
+      marketCap,
       aboveMA200,
       breakdown: {
         growth:    growthScore    != null ? Math.round(growthScore)    : null,
