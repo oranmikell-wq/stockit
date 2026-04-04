@@ -143,7 +143,7 @@ const ALLOWED_HOSTS = [
 ];
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const KV_KEY = 'top-picks-v3'; // v3: includes ATH (5Y)
+const KV_KEY = 'top-picks-v7'; // v7: MA200 fixed (40w weekly ≈ 200d), insider from metrics
 
 // ── Main export ───────────────────────────────────────────────────────────────
 export default {
@@ -263,12 +263,14 @@ export default {
 async function runDailyScan(env) {
   console.log('[Scanner] Starting daily S&P 500 scan...');
   const results = [];
-  // Finnhub free plan: 60 req/min = 1 req/sec.
-  // With batch=5 stocks running in parallel and 6000ms pause after each batch:
-  //   5 Finnhub calls per batch, 1 batch every ~7s → ~43 Finnhub calls/min (safe)
-  //   Total scan time: ~99 batches × 7s ≈ 11.5 minutes (within 15-min cron limit)
-  const BATCH = 5;
-  const BATCH_DELAY = 6000;
+  // Finnhub free plan: 60 req/min.
+  // Each stock makes 4 Finnhub calls (metrics + earnings + shortInterest + profile).
+  // insiderOwnershipPercentage comes from existing metrics — no extra call needed.
+  // With batch=2 stocks in parallel and 8000ms pause after each batch:
+  //   2 × 4 = 8 Finnhub calls per ~9s → ~53 calls/min (safe under 60 limit)
+  //   Total scan time: ~250 batches × 9s ≈ 37 minutes (within 1-hour cron window)
+  const BATCH = 2;
+  const BATCH_DELAY = 8000;
 
   for (let i = 0; i < SP500_UNIVERSE.length; i += BATCH) {
     const batch = SP500_UNIVERSE.slice(i, i + BATCH);
@@ -300,9 +302,12 @@ async function runDailyScan(env) {
 // ── Score a single stock — uses exact scoring.js formula ─────────────────────
 async function scoreStock(symbol, env) {
   try {
-    const [chart, metrics] = await Promise.all([
+    const [chart, metrics, earningsArr, shortData, profile] = await Promise.all([
       fetchChart(symbol),
       fetchFinnhubMetrics(symbol, env.FINNHUB_KEY),
+      fetchFinnhubEarnings(symbol, env.FINNHUB_KEY),
+      fetchFinnhubShortInterest(symbol, env.FINNHUB_KEY),
+      fetchFinnhubProfile(symbol, env.FINNHUB_KEY),
     ]);
 
     const m          = metrics?.metric || {};
@@ -319,48 +324,70 @@ async function scoreStock(symbol, env) {
     const marketCapM = m.marketCapitalization ?? null;          // millions USD
     const marketCap  = marketCapM != null ? marketCapM * 1e6 : null; // full USD
 
-    // ── Compute MA200 and RSI from Yahoo closes ───────────────────
+    // ── EPS Surprise (from most recent quarterly earnings) ────────
+    const latestEarning = earningsArr?.[0];
+    let epsSurprise = null;
+    if (latestEarning?.actual != null && latestEarning?.estimate != null && latestEarning.estimate !== 0) {
+      epsSurprise = ((latestEarning.actual - latestEarning.estimate) / Math.abs(latestEarning.estimate)) * 100;
+    }
+
+    // ── FCF from pfcfShareTTM (already in metrics — no extra call needed) ─
+    // pfcfShareTTM = Price / FCF-per-share  →  FCF-total = MarketCap / pfcfShareTTM
+    const pfcf = m.pfcfShareTTM ?? null;
+    const syntheticFCF = (pfcf != null && pfcf > 0 && marketCap != null) ? marketCap / pfcf : null;
+
+    // ── Short Float % ─────────────────────────────────────────────
+    const latestShort = shortData?.data?.[shortData.data.length - 1];
+    let shortFloat = null;
+    if (latestShort?.shortInterest && latestShort?.sharesOutstanding && latestShort.sharesOutstanding > 0) {
+      shortFloat = (latestShort.shortInterest / latestShort.sharesOutstanding) * 100;
+    }
+
+    // ── Insider Ownership % — from existing metrics (same field browser uses) ──
+    // Finnhub returns insiderOwnershipPercentage as a % value (e.g. 0.28 for 0.28%)
+    const insiderOwnership = m.insiderOwnershipPercentage ?? null;
+
+    // ── Compute MA200 and RSI from Yahoo 5Y weekly closes ────────
+    // 200 trading days ÷ 5 days/week = 40 weeks → use last 40 weekly closes
     const closes   = chart?.closes ?? [];
     let ma200      = null;
     let aboveMA200 = null;
-    if (closes.length >= 50 && price != null) {
-      ma200 = calcSMA(closes, Math.min(200, closes.length));
+    if (closes.length >= 20 && price != null) {
+      ma200 = calcSMA(closes, Math.min(40, closes.length));
       if (ma200 != null) aboveMA200 = price >= ma200;
     }
     const rsi = closes.length >= 15 ? calcRSI(closes) : null;
 
-    // ── Sector key (default — no profile API call to stay within rate limits)
-    const sectorKey = 'default';
+    // ── Sector key from Finnhub profile (same getSectorKey logic as scoring.js)
+    const sectorKey = getSectorKey(profile?.finnhubIndustry ?? null);
 
-    // ── Growth family (35%) — scoring.js GROWTH_WEIGHTS ──────────
-    // Finnhub: epsGrowthTTMYoy and revenueGrowthTTMYoy are already in %
+    // ── Growth family (35%) ───────────────────────────────────────
     const familyGrowth = wAvg([
-      { score: scoreEPSSurprise(null),                   weight: GROWTH_WEIGHTS.epsSurprise }, // not available
-      { score: scoreEPS(m.epsGrowthTTMYoy ?? null),      weight: GROWTH_WEIGHTS.eps         },
-      { score: scoreRevenue(m.revenueGrowthTTMYoy ?? null), weight: GROWTH_WEIGHTS.revenue  },
+      { score: scoreEPSSurprise(epsSurprise),                    weight: GROWTH_WEIGHTS.epsSurprise },
+      { score: scoreEPS(m.epsGrowthTTMYoy ?? null),              weight: GROWTH_WEIGHTS.eps         },
+      { score: scoreRevenue(m.revenueGrowthTTMYoy ?? null),      weight: GROWTH_WEIGHTS.revenue     },
     ]);
 
-    // ── Valuation family (25%) — scoring.js VALUATION_WEIGHTS ────
+    // ── Valuation family (25%) ────────────────────────────────────
     const familyValuation = wAvg([
-      { score: scorePEG(m.pegNormalizedAnnual ?? null),  weight: VALUATION_WEIGHTS.peg },
-      { score: scoreFCF(null, null),                     weight: VALUATION_WEIGHTS.fcf }, // not available
-      { score: scorePEonly(m.peTTM ?? null, sectorKey),  weight: VALUATION_WEIGHTS.pe  },
+      { score: scorePEG(m.pegNormalizedAnnual ?? null),           weight: VALUATION_WEIGHTS.peg },
+      { score: scoreFCF(syntheticFCF, marketCap),                 weight: VALUATION_WEIGHTS.fcf },
+      { score: scorePEonly(m.peTTM ?? null, sectorKey),           weight: VALUATION_WEIGHTS.pe  },
     ]);
 
-    // ── Quality family (20%) — scoring.js QUALITY_WEIGHTS ────────
-    // Finnhub operatingMarginTTM and roeTTM are already in % (e.g. 25.3 = 25.3%)
+    // ── Quality family (20%) ──────────────────────────────────────
     const familyQuality = wAvg([
       { score: scoreOperatingMargin(m.operatingMarginTTM ?? null, sectorKey), weight: QUALITY_WEIGHTS.operatingMargin  },
-      { score: scoreInsiderOwnership(null),                                   weight: QUALITY_WEIGHTS.insiderOwnership }, // not available
-      { score: scoreROE(m.roeTTM ?? null),                                   weight: QUALITY_WEIGHTS.roe              },
-      { score: scoreCurrentRatio(m.currentRatioAnnual ?? null),              weight: QUALITY_WEIGHTS.currentRatio     },
+      { score: scoreInsiderOwnership(insiderOwnership),                        weight: QUALITY_WEIGHTS.insiderOwnership },
+      { score: scoreROE(m.roeTTM ?? null),                                    weight: QUALITY_WEIGHTS.roe              },
+      { score: scoreCurrentRatio(m.currentRatioAnnual ?? null),               weight: QUALITY_WEIGHTS.currentRatio     },
     ]);
 
-    // ── Technical family (20%) — scoring.js TECHNICAL_WEIGHTS ────
+    // ── Technical family (20%) ────────────────────────────────────
     const familyTechnical = wAvg([
       { score: scoreMA200Position(price, ma200),   weight: TECHNICAL_WEIGHTS.ma200        },
       { score: scoreDistFromHigh(price, high52w),  weight: TECHNICAL_WEIGHTS.distFromHigh },
-      { score: scoreShortFloat(null),              weight: TECHNICAL_WEIGHTS.shortFloat   }, // not available
+      { score: scoreShortFloat(shortFloat),        weight: TECHNICAL_WEIGHTS.shortFloat   },
       { score: scoreRSI(rsi),                      weight: TECHNICAL_WEIGHTS.rsi          },
     ]);
 
@@ -382,7 +409,7 @@ async function scoreStock(symbol, env) {
       price, changePct,
       high52: high52w,
       ath: chart?.ath ?? null,
-      marketCap: marketCapM,
+      marketCap: marketCap,     // raw dollars (marketCapM * 1e6) — matches Yahoo Finance format
       aboveMA200,
     };
 
@@ -401,6 +428,42 @@ async function fetchFinnhubMetrics(symbol, key) {
       headers: { 'Accept': 'application/json' },
       signal: AbortSignal.timeout(7000),
     });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+// ── Fetch Finnhub quarterly earnings (for EPS Surprise) ──────────────────────
+async function fetchFinnhubEarnings(symbol, key) {
+  if (!key) return null;
+  const url = `https://finnhub.io/api/v1/stock/earnings?symbol=${encodeURIComponent(symbol)}&limit=4&token=${key}`;
+  try {
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(7000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data) ? data : null;
+  } catch { return null; }
+}
+
+// ── Fetch Finnhub short interest ──────────────────────────────────────────────
+async function fetchFinnhubShortInterest(symbol, key) {
+  if (!key) return null;
+  const to   = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const url  = `https://finnhub.io/api/v1/stock/short-interest?symbol=${encodeURIComponent(symbol)}&from=${from}&to=${to}&token=${key}`;
+  try {
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(7000) });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+// ── Fetch Finnhub company profile (for sector) ────────────────────────────────
+async function fetchFinnhubProfile(symbol, key) {
+  if (!key) return null;
+  const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${key}`;
+  try {
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(7000) });
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }

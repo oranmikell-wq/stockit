@@ -319,7 +319,7 @@ function navigateTo(page, symbol = null) {
   if (page === 'home') {
     renderHomeWatchlist();
     // Re-render Top Picks if cache was invalidated (e.g. after visiting speedometer)
-    if (!localStorage.getItem('bon-toppicks-v5')) {
+    if (!localStorage.getItem('bon-toppicks-v10')) {
       renderTopPicks(document.getElementById('top-picks-section'));
     }
   }
