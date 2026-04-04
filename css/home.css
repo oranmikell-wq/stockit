@@ -958,7 +958,7 @@
 @media (min-width: 1280px) {
   .home-main {
     display: grid;
-    grid-template-columns: 1fr 256px;
+    grid-template-columns: 1fr 200px;
     grid-template-rows: auto;
     column-gap: 20px;
     row-gap: 20px;
