@@ -156,7 +156,7 @@ function rawDataFor(key, scored, data) {
         : [];
     case 'distFromHigh':
       return data.price != null && data.high52w != null
-        ? [`52W High: $${data.high52w.toFixed(2)}`, `Dist: ${(((data.price - data.high52w) / data.high52w) * 100).toFixed(1)}%`]
+        ? [`ATH: $${data.high52w.toFixed(2)}`, `Dist: ${(((data.price - data.high52w) / data.high52w) * 100).toFixed(1)}%`]
         : [];
     case 'shortFloat':
       return data.shortFloat != null ? [`Short: ${data.shortFloat.toFixed(1)}%`] : [];
@@ -190,7 +190,7 @@ function rawDataFor(key, scored, data) {
       return data.debtEquity != null ? [`D/E: ${data.debtEquity.toFixed(2)}`] : [];
     case 'ath':
       return [
-        data.price != null && data.high52w != null && `52W High: $${data.high52w.toFixed(2)}`,
+        data.price != null && data.high52w != null && `ATH: $${data.high52w.toFixed(2)}`,
         data.price != null && `${t('distFromHigh')}: ${data.high52w ? (((data.price - data.high52w) / data.high52w) * 100).toFixed(1) + '%' : 'N/A'}`,
       ].filter(Boolean);
     case 'highs':
