@@ -297,7 +297,7 @@ async function runDailyScan(env) {
   console.log(`[Scanner] Done. Scored ${results.length}/${SP500_UNIVERSE.length} stocks. Top: ${top20[0]?.symbol} (${top20[0]?.score})`);
 }
 
-// ── Score a single stock ──────────────────────────────────────────────────────
+// ── Score a single stock — uses exact scoring.js formula ─────────────────────
 async function scoreStock(symbol, env) {
   try {
     const [chart, metrics] = await Promise.all([
@@ -305,167 +305,84 @@ async function scoreStock(symbol, env) {
       fetchFinnhubMetrics(symbol, env.FINNHUB_KEY),
     ]);
 
-    // Need at least chart or Finnhub data to score
-    const m = metrics?.metric || {};
+    const m          = metrics?.metric || {};
     const hasChart   = chart && chart.closes.length >= 10;
     const hasFinnhub = metrics != null;
     if (!hasChart && !hasFinnhub) return null;
 
-    const price     = chart?.price     ?? null;
-    const name      = chart?.name      ?? symbol;
-    const changePct = chart?.changePct  ?? null;
-    const high52    = chart?.high52    ?? null;
-    // Market cap from Finnhub (in millions USD)
-    const marketCap = m.marketCapitalization ?? null;
+    // ── Raw fields ────────────────────────────────────────────────
+    const price      = chart?.price     ?? null;
+    const name       = chart?.name      ?? symbol;
+    const changePct  = chart?.changePct ?? null;
+    const high52w    = chart?.high52    ?? null;
+    const low52w     = chart?.low52     ?? null;
+    const marketCapM = m.marketCapitalization ?? null;          // millions USD
+    const marketCap  = marketCapM != null ? marketCapM * 1e6 : null; // full USD
 
-    // ── Growth (35%) ──────────────────────────────────────────────
-    // EPS Growth TTM YoY (Finnhub: percent, e.g. 12.5 = 12.5%)
-    const epsGrowth = m.epsGrowthTTMYoy != null ? m.epsGrowthTTMYoy / 100 : null;
-    const epsGrowthScore = epsGrowth != null
-      ? clamp(50 + epsGrowth * 100, 0, 100)
-      : null;
-
-    // Revenue Growth TTM YoY (Finnhub: percent)
-    const revGrowth = m.revenueGrowthTTMYoy != null ? m.revenueGrowthTTMYoy / 100 : null;
-    const revGrowthScore = revGrowth != null
-      ? clamp(50 + revGrowth * 150, 0, 100)
-      : null;
-
-    // EPS Growth 3Y annual (supplementary)
-    const epsGrowth3y = m.epsGrowth3Y != null ? m.epsGrowth3Y / 100 : null;
-    const epsGrowth3yScore = epsGrowth3y != null
-      ? clamp(50 + epsGrowth3y * 80, 0, 100)
-      : null;
-
-    const growthScore = weightedAvg([
-      [epsGrowthScore,   0.50],
-      [revGrowthScore,   0.30],
-      [epsGrowth3yScore, 0.20],
-    ]);
-
-    // ── Valuation (25%) ───────────────────────────────────────────
-    // P/E TTM (Finnhub: peTTM)
-    const pe = m.peTTM ?? null;
-    const peScore = pe != null && pe > 0
-      ? clamp(pe <= 15 ? 90 : pe <= 25 ? 75 : pe <= 35 ? 55 : pe <= 50 ? 35 : 15, 0, 100)
-      : null;
-
-    // P/B Annual (Finnhub: pbAnnual)
-    const pb = m.pbAnnual ?? null;
-    const pbScore = pb != null && pb > 0
-      ? clamp(pb <= 1.5 ? 90 : pb <= 3 ? 75 : pb <= 5 ? 58 : pb <= 10 ? 38 : 15, 0, 100)
-      : null;
-
-    // P/S TTM (Finnhub: psTTM)
-    const ps = m.psTTM ?? null;
-    const psScore = ps != null && ps > 0
-      ? clamp(ps <= 1 ? 92 : ps <= 3 ? 78 : ps <= 6 ? 60 : ps <= 12 ? 40 : 18, 0, 100)
-      : null;
-
-    const valuationScore = weightedAvg([
-      [peScore, 0.50],
-      [pbScore, 0.25],
-      [psScore, 0.25],
-    ]);
-
-    // ── Quality (20%) ─────────────────────────────────────────────
-    // Operating Margin TTM (Finnhub: operatingMarginTTM — percent)
-    const opMarginRaw = m.operatingMarginTTM ?? null;
-    const opMargin    = opMarginRaw != null ? opMarginRaw / 100 : null;
-    const opMarginScore = opMargin != null
-      ? clamp(opMargin >= 0.30 ? 95 : opMargin >= 0.20 ? 80 : opMargin >= 0.10 ? 65 : opMargin >= 0.05 ? 45 : opMargin >= 0 ? 25 : 10, 0, 100)
-      : null;
-
-    // ROE TTM (Finnhub: roeTTM — percent)
-    const roeRaw = m.roeTTM ?? null;
-    const roe    = roeRaw != null ? roeRaw / 100 : null;
-    const roeScore = roe != null
-      ? clamp(roe >= 0.30 ? 95 : roe >= 0.20 ? 82 : roe >= 0.10 ? 65 : roe >= 0.05 ? 45 : roe >= 0 ? 25 : 10, 0, 100)
-      : null;
-
-    // Current Ratio Annual (Finnhub: currentRatioAnnual)
-    const cr = m.currentRatioAnnual ?? null;
-    const crScore = cr != null
-      ? clamp(cr >= 2.0 ? 85 : cr >= 1.5 ? 75 : cr >= 1.0 ? 60 : cr >= 0.8 ? 40 : 20, 0, 100)
-      : null;
-
-    // Gross Margin TTM (Finnhub: grossMarginTTM — percent)
-    const grossMargin = m.grossMarginTTM != null ? m.grossMarginTTM / 100 : null;
-    const grossScore  = grossMargin != null
-      ? clamp(grossMargin >= 0.60 ? 95 : grossMargin >= 0.40 ? 80 : grossMargin >= 0.25 ? 65 : grossMargin >= 0.10 ? 45 : 20, 0, 100)
-      : null;
-
-    const qualityScore = weightedAvg([
-      [opMarginScore, 0.35],
-      [roeScore,      0.30],
-      [crScore,       0.20],
-      [grossScore,    0.15],
-    ]);
-
-    // ── Technical (20%) ───────────────────────────────────────────
-    // MA200 from Yahoo chart closes
-    let ma200Score = null;
+    // ── Compute MA200 and RSI from Yahoo closes ───────────────────
+    const closes   = chart?.closes ?? [];
+    let ma200      = null;
     let aboveMA200 = null;
-    if (hasChart && chart.closes.length >= 50 && price != null) {
-      const ma200 = calcSMA(chart.closes, Math.min(200, chart.closes.length));
-      if (ma200 != null) {
-        const pct = (price - ma200) / ma200;
-        ma200Score = pct >= 0.10 ? 92 : pct >= 0.05 ? 80 : pct >= 0 ? 65 : pct >= -0.05 ? 45 : pct >= -0.15 ? 30 : 15;
-        aboveMA200 = price >= ma200;
-      }
+    if (closes.length >= 50 && price != null) {
+      ma200 = calcSMA(closes, Math.min(200, closes.length));
+      if (ma200 != null) aboveMA200 = price >= ma200;
     }
+    const rsi = closes.length >= 15 ? calcRSI(closes) : null;
 
-    // Distance from 52W High (from Yahoo chart meta)
-    let dist52Score = null;
-    if (high52 != null && price != null && high52 > 0) {
-      const dist = (price - high52) / high52;
-      dist52Score = dist >= -0.05 ? 90 : dist >= -0.10 ? 78 : dist >= -0.20 ? 62 : dist >= -0.35 ? 45 : dist >= -0.50 ? 28 : 12;
-    }
+    // ── Sector key (default — no profile API call to stay within rate limits)
+    const sectorKey = 'default';
 
-    // RSI(14) from Yahoo chart closes
-    let rsiScore = null;
-    if (hasChart && chart.closes.length >= 15) {
-      const rsi = calcRSI(chart.closes, 14);
-      if (rsi != null) {
-        rsiScore = rsi < 30 ? 65 : rsi < 40 ? 55 : rsi < 65 ? 82 : rsi < 75 ? 40 : 18;
-      }
-    }
-
-    const technicalScore = weightedAvg([
-      [ma200Score,  0.45],
-      [dist52Score, 0.35],
-      [rsiScore,    0.20],
+    // ── Growth family (35%) — scoring.js GROWTH_WEIGHTS ──────────
+    // Finnhub: epsGrowthTTMYoy and revenueGrowthTTMYoy are already in %
+    const familyGrowth = wAvg([
+      { score: scoreEPSSurprise(null),                   weight: GROWTH_WEIGHTS.epsSurprise }, // not available
+      { score: scoreEPS(m.epsGrowthTTMYoy ?? null),      weight: GROWTH_WEIGHTS.eps         },
+      { score: scoreRevenue(m.revenueGrowthTTMYoy ?? null), weight: GROWTH_WEIGHTS.revenue  },
     ]);
 
-    // ── Final score ───────────────────────────────────────────────
-    const finalScore = weightedAvg([
-      [growthScore,    0.35],
-      [valuationScore, 0.25],
-      [qualityScore,   0.20],
-      [technicalScore, 0.20],
+    // ── Valuation family (25%) — scoring.js VALUATION_WEIGHTS ────
+    const familyValuation = wAvg([
+      { score: scorePEG(m.pegNormalizedAnnual ?? null),  weight: VALUATION_WEIGHTS.peg },
+      { score: scoreFCF(null, null),                     weight: VALUATION_WEIGHTS.fcf }, // not available
+      { score: scorePEonly(m.peTTM ?? null, sectorKey),  weight: VALUATION_WEIGHTS.pe  },
     ]);
 
-    if (finalScore == null) return null;
+    // ── Quality family (20%) — scoring.js QUALITY_WEIGHTS ────────
+    // Finnhub operatingMarginTTM and roeTTM are already in % (e.g. 25.3 = 25.3%)
+    const familyQuality = wAvg([
+      { score: scoreOperatingMargin(m.operatingMarginTTM ?? null, sectorKey), weight: QUALITY_WEIGHTS.operatingMargin  },
+      { score: scoreInsiderOwnership(null),                                   weight: QUALITY_WEIGHTS.insiderOwnership }, // not available
+      { score: scoreROE(m.roeTTM ?? null),                                   weight: QUALITY_WEIGHTS.roe              },
+      { score: scoreCurrentRatio(m.currentRatioAnnual ?? null),              weight: QUALITY_WEIGHTS.currentRatio     },
+    ]);
 
-    const score  = Math.round(finalScore);
+    // ── Technical family (20%) — scoring.js TECHNICAL_WEIGHTS ────
+    const familyTechnical = wAvg([
+      { score: scoreMA200Position(price, ma200),   weight: TECHNICAL_WEIGHTS.ma200        },
+      { score: scoreDistFromHigh(price, high52w),  weight: TECHNICAL_WEIGHTS.distFromHigh },
+      { score: scoreShortFloat(null),              weight: TECHNICAL_WEIGHTS.shortFloat   }, // not available
+      { score: scoreRSI(rsi),                      weight: TECHNICAL_WEIGHTS.rsi          },
+    ]);
+
+    // ── Final weighted score — identical to scoring.js calcScore ─
+    let totalWeight = 0, weightedSum = 0;
+    const fw = FAMILY_WEIGHTS;
+    if (familyGrowth    != null) { weightedSum += familyGrowth    * fw.growth;    totalWeight += fw.growth;    }
+    if (familyValuation != null) { weightedSum += familyValuation * fw.valuation; totalWeight += fw.valuation; }
+    if (familyQuality   != null) { weightedSum += familyQuality   * fw.quality;   totalWeight += fw.quality;   }
+    if (familyTechnical != null) { weightedSum += familyTechnical * fw.technical; totalWeight += fw.technical; }
+
+    if (totalWeight === 0) return null;
+
+    const score  = Math.round(weightedSum / totalWeight);
     const rating = score >= 66 ? 'buy' : score >= 41 ? 'wait' : 'sell';
 
     return {
-      symbol,
-      name,
-      score,
-      rating,
-      price,
-      changePct,
-      high52:     chart?.high52 ?? null,
-      marketCap,
+      symbol, name, score, rating,
+      price, changePct,
+      high52: high52w,
+      marketCap: marketCapM,
       aboveMA200,
-      breakdown: {
-        growth:    growthScore    != null ? Math.round(growthScore)    : null,
-        valuation: valuationScore != null ? Math.round(valuationScore) : null,
-        quality:   qualityScore   != null ? Math.round(qualityScore)   : null,
-        technical: technicalScore != null ? Math.round(technicalScore) : null,
-      },
     };
 
   } catch (e) {
@@ -514,19 +431,152 @@ async function fetchChart(symbol) {
       name:     meta.longName ?? meta.shortName ?? symbol,
       changePct,
       high52:   meta.fiftyTwoWeekHigh ?? null,
+      low52:    meta.fiftyTwoWeekLow  ?? null,
     };
   } catch { return null; }
 }
 
-// ── Scoring helpers ───────────────────────────────────────────────────────────
-function weightedAvg(pairs) {
-  const valid = pairs.filter(([v]) => v != null);
-  if (!valid.length) return null;
-  const totalW = valid.reduce((s, [, w]) => s + w, 0);
-  return valid.reduce((s, [v, w]) => s + v * w, 0) / totalW;
+// ── Scoring engine — exact mirror of scoring.js ───────────────────────────────
+// Family weights (identical to scoring.js)
+const FAMILY_WEIGHTS    = { growth: 0.35, valuation: 0.25, quality: 0.20, technical: 0.20 };
+const GROWTH_WEIGHTS    = { epsSurprise: 0.50, eps: 0.30, revenue: 0.20 };
+const VALUATION_WEIGHTS = { peg: 0.50, fcf: 0.30, pe: 0.20 };
+const QUALITY_WEIGHTS   = { operatingMargin: 0.35, insiderOwnership: 0.25, roe: 0.25, currentRatio: 0.15 };
+const TECHNICAL_WEIGHTS = { ma200: 0.40, distFromHigh: 0.25, shortFloat: 0.20, rsi: 0.15 };
+
+const SECTOR_PE = {
+  technology: [15,25,40,60], financials: [8,12,18,25], energy: [8,12,18,25],
+  healthcare: [12,20,30,45], real_estate: [15,25,40,60], consumer: [12,18,28,40],
+  industrials: [12,18,25,35], communication: [12,20,35,55], utilities: [14,18,25,35],
+  materials: [10,15,22,30], default: [12,20,35,55],
+};
+
+function getSectorKey(sector) {
+  if (!sector) return 'default';
+  const s = sector.toLowerCase();
+  if (s.includes('tech'))                       return 'technology';
+  if (s.includes('financ') || s.includes('bank')) return 'financials';
+  if (s.includes('energy'))                     return 'energy';
+  if (s.includes('health'))                     return 'healthcare';
+  if (s.includes('real estate'))                return 'real_estate';
+  if (s.includes('consumer'))                   return 'consumer';
+  if (s.includes('industri'))                   return 'industrials';
+  if (s.includes('commun'))                     return 'communication';
+  if (s.includes('utilit'))                     return 'utilities';
+  if (s.includes('material'))                   return 'materials';
+  return 'default';
 }
 
-function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function normalizeInverse(value, benchmarks) {
+  const [ex, gd, av, po] = benchmarks;
+  if (value <= ex) return 100;
+  if (value <= gd) return 75 + ((gd - value) / (gd - ex)) * 25;
+  if (value <= av) return 40 + ((av - value) / (av - gd)) * 35;
+  if (value <= po) return 10 + ((po - value) / (po - av)) * 30;
+  return 5;
+}
+
+function normalizeLinear(value, min, max) {
+  if (value >= max) return 100;
+  if (value <= min) return 0;
+  return ((value - min) / (max - min)) * 100;
+}
+
+// Weighted average — skips null scores and re-normalises remaining weights
+function wAvg(items) {
+  let totalW = 0, sum = 0;
+  for (const { score, weight } of items) {
+    if (score != null) { sum += score * weight; totalW += weight; }
+  }
+  return totalW > 0 ? sum / totalW : null;
+}
+
+// Individual scorers — exact copies from scoring.js
+function scoreEPS(v)        { return v == null ? null : normalizeLinear(v, -30, 40); }
+function scoreRevenue(v)    { return v == null ? null : normalizeLinear(v, -10, 30); }
+function scoreEPSSurprise(v){ return v == null ? null : normalizeLinear(v, -20, 20); }
+
+function scorePEG(peg) {
+  if (peg == null || peg <= 0) return null;
+  if (peg <= 0.5) return 100;
+  if (peg <= 1.0) return normalizeLinear(1.0 - peg, 0, 0.5) / 100 * 20 + 80;
+  if (peg <= 2.0) return normalizeLinear(2.0 - peg, 0, 1.0) / 100 * 40 + 40;
+  if (peg <= 4.0) return normalizeLinear(4.0 - peg, 0, 2.0) / 100 * 35 + 5;
+  return 5;
+}
+
+function scoreFCF(fcf, mc) {
+  if (fcf == null) return null;
+  if (fcf <= 0) return 10;
+  if (mc == null || mc <= 0) return 50;
+  return normalizeLinear((fcf / mc) * 100, 0, 10);
+}
+
+function scorePEonly(pe, sk) {
+  if (pe == null || pe <= 0) return null;
+  return normalizeInverse(pe, SECTOR_PE[sk] || SECTOR_PE.default);
+}
+
+function scoreOperatingMargin(om, sk) {
+  if (om == null) return null;
+  const hi = ['technology','healthcare','communication'];
+  const ex = hi.includes(sk) ? 30 : 20;
+  const gd = hi.includes(sk) ? 20 : 12;
+  const av = hi.includes(sk) ? 10 :  5;
+  if (om <= 0) return 5;
+  if (om >= ex) return 100;
+  if (om >= gd) return 70 + ((om - gd) / (ex - gd)) * 30;
+  if (om >= av) return 40 + ((om - av) / (gd - av)) * 30;
+  return 5 + (om / av) * 35;
+}
+
+function scoreInsiderOwnership(pct) {
+  if (pct == null) return null;
+  if (pct < 0.5) return 20; if (pct <= 5) return 55;
+  if (pct <= 15) return 75; if (pct <= 30) return 85;
+  if (pct <= 50) return 70; return 40;
+}
+
+function scoreROE(roe) {
+  if (roe == null) return null;
+  if (roe < 0) return 5;
+  return normalizeLinear(roe, 0, 30);
+}
+
+function scoreCurrentRatio(cr) {
+  if (cr == null) return null;
+  if (cr >= 2.5) return 100; if (cr >= 2.0) return 85;
+  if (cr >= 1.5) return 70;  if (cr >= 1.0) return 45;
+  if (cr >= 0.5) return 20;  return 5;
+}
+
+function scoreMA200Position(price, ma200) {
+  if (price == null || ma200 == null || ma200 === 0) return null;
+  const pct = (price / ma200 - 1) * 100;
+  if (pct >= 20) return 90; if (pct >= 10) return 80;
+  if (pct >= 5)  return 70; if (pct >= 0)  return 60;
+  if (pct >= -5) return 40; if (pct >= -10) return 25;
+  if (pct >= -20) return 15; return 5;
+}
+
+function scoreDistFromHigh(price, high52w) {
+  if (price == null || high52w == null || high52w === 0) return null;
+  return normalizeInverse(((high52w - price) / high52w) * 100, [0, 10, 30, 50]);
+}
+
+function scoreShortFloat(pct) {
+  if (pct == null) return null;
+  if (pct <= 2) return 95; if (pct <= 5)  return 80;
+  if (pct <= 10) return 60; if (pct <= 15) return 40;
+  if (pct <= 25) return 20; return 5;
+}
+
+function scoreRSI(rsi) {
+  if (rsi == null) return null;
+  if (rsi < 30) return 70; if (rsi < 50) return 80;
+  if (rsi < 65) return 65; if (rsi < 75) return 35;
+  return 15;
+}
 
 function calcSMA(closes, period) {
   if (closes.length < period) return null;
@@ -539,7 +589,7 @@ function calcRSI(closes, period = 14) {
   let gains = 0, losses = 0;
   for (let i = closes.length - period; i < closes.length; i++) {
     const diff = closes[i] - closes[i - 1];
-    if (diff >= 0) gains += diff; else losses -= diff;
+    if (diff > 0) gains += diff; else losses -= diff;
   }
   if (losses === 0) return 100;
   const rs = (gains / period) / (losses / period);
