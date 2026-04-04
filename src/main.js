@@ -663,7 +663,9 @@ function renderResults(data, scored) {
   }
 
   // ── ATH / Highs / Distance from High ─────────────────
-  const athPrice = scored.technicals?.athPrice;
+  // True ATH = max of (5Y history closes, 52W intraday high) — single consistent value everywhere
+  const athFromHistory = scored.technicals?.athPrice ?? 0;
+  const athPrice = Math.max(athFromHistory, data.high52w ?? 0) || null;
   const athEl = document.getElementById('info-ath');
   if (athEl) athEl.textContent = athPrice != null ? `${currency} ${athPrice.toFixed(2)}` : t('noData');
 
@@ -675,8 +677,8 @@ function renderResults(data, scored) {
 
   const distHighEl = document.getElementById('info-dist-high');
   if (distHighEl) {
-    if (data.price != null && data.high52w != null && data.high52w > 0) {
-      const distPct = ((data.high52w - data.price) / data.high52w) * 100;
+    if (data.price != null && athPrice != null && athPrice > 0) {
+      const distPct = ((athPrice - data.price) / athPrice) * 100;
       distHighEl.textContent = distPct < 0.1 ? t('atHigh') : `-${distPct.toFixed(1)}%`;
       distHighEl.className = `info-value ${distPct < 5 ? 'positive' : distPct < 15 ? '' : 'negative'}`;
     } else {
