@@ -107,7 +107,9 @@ function fmtEarnings(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   if (isNaN(d)) return null;
   const diffDays = Math.round((d - Date.now()) / 864e5);
-  const label = d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+  const lang   = localStorage.getItem('bon-lang') || 'he';
+  const locale = lang === 'en' ? 'en-US' : 'he-IL';
+  const label  = d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
   return { label, soon: diffDays >= 0 && diffDays <= 14 };
 }
 
