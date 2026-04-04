@@ -40,11 +40,15 @@ async function fetchWorkerPicks() {
 }
 
 // ── Local fallback ────────────────────────────────────────────────────────────
+const SCORE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
 function getCachedScore(symbol) {
   try {
     const raw = localStorage.getItem(`bon-score-${symbol.toUpperCase()}`);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (parsed.ts && Date.now() - parsed.ts > SCORE_TTL) return null;
+    return parsed;
   } catch { return null; }
 }
 
