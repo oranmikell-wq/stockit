@@ -6,7 +6,7 @@ import { calcScore } from '../utils/scoring.js';
 import { fetchAllData, fetchHistory } from '../services/StockService.js';
 
 const WORKER_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/top-picks';
-const PICKS_KEY  = 'bon-toppicks-v8';        // v8: includes marketCap, ATH label
+const PICKS_KEY  = 'bon-toppicks-v9';        // v9: ath = real 5Y high
 const PICKS_TTL  = 4 * 60 * 60 * 1000;      // 4 hours
 
 const FALLBACK_UNIVERSE = [
@@ -98,9 +98,9 @@ function renderRow(pick) {
   const chgTxt = chgVal != null ? (chgVal >= 0 ? '+' : '') + chgVal.toFixed(2) + '%' : '-';
   const chgCls = chgVal != null ? (chgVal >= 0 ? 'tp-chg-up' : 'tp-chg-down') : '';
 
-  const distTxt = fmtDist(pick.price, pick.high52);
-  const distCls = pick.price != null && pick.high52 != null
-    ? (pick.price >= pick.high52 ? 'tp-chg-up' : 'tp-chg-down') : '';
+  const distTxt = fmtDist(pick.price, pick.ath);
+  const distCls = pick.price != null && pick.ath != null
+    ? (pick.price >= pick.ath ? 'tp-chg-up' : 'tp-chg-down') : '';
 
   const maTxt = pick.aboveMA200 === true  ? '<span class="tp-ma-yes">✓</span>'
               : pick.aboveMA200 === false ? '<span class="tp-ma-no">✗</span>'
@@ -118,7 +118,7 @@ function renderRow(pick) {
       <span class="tp-name">${shortName}</span>
     </td>
     <td class="tp-td-num">${fmtPrice(pick.price)}</td>
-    <td class="tp-td-num">${fmtPrice(pick.high52)}</td>
+    <td class="tp-td-num">${fmtPrice(pick.ath)}</td>
     <td class="tp-td-num ${distCls}">${distTxt}</td>
     <td class="tp-td-num ${chgCls}">${chgTxt}</td>
     <td class="tp-td-num">${fmtMarketCap(pick.marketCap ?? null)}</td>

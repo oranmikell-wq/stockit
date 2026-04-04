@@ -143,7 +143,7 @@ const ALLOWED_HOSTS = [
 ];
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const KV_KEY = 'top-picks-v2'; // v2: includes marketCap
+const KV_KEY = 'top-picks-v3'; // v3: includes ATH (5Y)
 
 // ── Main export ───────────────────────────────────────────────────────────────
 export default {
@@ -381,6 +381,7 @@ async function scoreStock(symbol, env) {
       symbol, name, score, rating,
       price, changePct,
       high52: high52w,
+      ath: chart?.ath ?? null,
       marketCap: marketCapM,
       aboveMA200,
     };
@@ -406,8 +407,10 @@ async function fetchFinnhubMetrics(symbol, key) {
 }
 
 // ── Fetch Yahoo Finance chart (close prices + meta) ───────────────────────────
+// Uses 5Y weekly: gives enough data for ATH, MA200 (weekly), and RSI.
+// high52 / low52 still come from Yahoo meta (always accurate).
 async function fetchChart(symbol) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d&includePrePost=false`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5y&interval=1wk&includePrePost=false`;
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': UA, 'Accept': 'application/json' },
@@ -419,12 +422,13 @@ async function fetchChart(symbol) {
     if (!result) return null;
     const meta   = result.meta || {};
     const closes = (result.indicators?.quote?.[0]?.close ?? []).filter(v => v != null);
-    // Yahoo v8 chart doesn't return regularMarketChangePercent — compute from last 2 closes
     const price   = meta.regularMarketPrice ?? (closes.length ? closes[closes.length - 1] : null);
     const prevClose = closes.length >= 2 ? closes[closes.length - 2] : null;
     const changePct = price != null && prevClose != null && prevClose !== 0
       ? ((price - prevClose) / prevClose) * 100
       : null;
+    // ATH = max close over 5 years
+    const ath = closes.length ? Math.max(...closes) : null;
     return {
       closes,
       price,
@@ -432,6 +436,7 @@ async function fetchChart(symbol) {
       changePct,
       high52:   meta.fiftyTwoWeekHigh ?? null,
       low52:    meta.fiftyTwoWeekLow  ?? null,
+      ath,
     };
   } catch { return null; }
 }
