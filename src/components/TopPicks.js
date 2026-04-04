@@ -5,9 +5,10 @@
 import { t } from '../utils/i18n.js?v=6';
 import { calcScore } from '../utils/scoring.js';
 import { fetchAllData, fetchHistory } from '../services/StockService.js';
+import { isInWatchlist, addToWatchlist, removeFromWatchlist } from './Watchlist.js';
 
 const WORKER_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/top-picks';
-const PICKS_KEY  = 'bon-toppicks-v9';        // v9: ath = real 5Y high
+const PICKS_KEY  = 'bon-toppicks-v10';       // v10: full indicators in Worker
 const PICKS_TTL  = 4 * 60 * 60 * 1000;      // 4 hours
 
 const FALLBACK_UNIVERSE = [
@@ -141,11 +142,13 @@ function fmtPrice(p) {
   return '$' + p.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-function fmtMarketCap(mcM) {
-  if (mcM == null || mcM <= 0) return '-';
-  if (mcM >= 1_000_000) return '$' + (mcM / 1_000_000).toFixed(2) + 'T';
-  if (mcM >= 1_000)     return '$' + (mcM / 1_000).toFixed(1) + 'B';
-  return '$' + mcM.toFixed(0) + 'M';
+function fmtMarketCap(mc) {
+  if (mc == null || mc <= 0) return '-';
+  // API returns raw dollars (e.g. 3_761_000_000_000 for AAPL)
+  if (mc >= 1e12) return '$' + (mc / 1e12).toFixed(2) + 'T';
+  if (mc >= 1e9)  return '$' + (mc / 1e9).toFixed(1) + 'B';
+  if (mc >= 1e6)  return '$' + (mc / 1e6).toFixed(0) + 'M';
+  return '$' + mc.toFixed(0);
 }
 
 function fmtDist(price, ath) {
@@ -175,6 +178,7 @@ function renderRow(pick) {
     ? pick.name.slice(0, 20) + '…' : (pick.name ?? pick.symbol);
 
   const scoreTxt = pick.score != null ? pick.score : '-';
+  const inWL     = isInWatchlist(pick.symbol);
 
   const tr = document.createElement('tr');
   tr.dataset.symbol = pick.symbol;
@@ -184,6 +188,9 @@ function renderRow(pick) {
       <span class="tp-sym">${pick.symbol}</span>
       <span class="tp-name">${shortName}</span>
     </td>
+    <td class="tp-td-center tp-td-star">
+      <button class="tp-star-btn${inWL ? ' active' : ''}" title="${inWL ? 'Remove from watchlist' : 'Add to watchlist'}">★</button>
+    </td>
     <td class="tp-td-num">${fmtPrice(pick.price)}</td>
     <td class="tp-td-num">${fmtPrice(pick.ath)}</td>
     <td class="tp-td-num ${distCls}">${distTxt}</td>
@@ -191,6 +198,19 @@ function renderRow(pick) {
     <td class="tp-td-num">${fmtMarketCap(pick.marketCap ?? null)}</td>
     <td class="tp-td-center">${maTxt}</td>
     <td class="tp-td-center"><span class="tp-badge ${badgeCls}">${scoreTxt}</span></td>`;
+
+  // Star / watchlist toggle
+  const starBtn = tr.querySelector('.tp-star-btn');
+  starBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const nowIn = isInWatchlist(pick.symbol);
+    if (nowIn) removeFromWatchlist(pick.symbol);
+    else        addToWatchlist(pick.symbol, pick.name, pick.rating ?? 'wait');
+    const after = isInWatchlist(pick.symbol);
+    starBtn.classList.toggle('active', after);
+    starBtn.title = after ? 'Remove from watchlist' : 'Add to watchlist';
+    _wlPicksCache = null; // force watchlist tab to refresh
+  });
 
   const nav = () => { if (typeof window.navigateTo === 'function') window.navigateTo('results', pick.symbol); };
   tr.addEventListener('click', nav);
@@ -202,13 +222,13 @@ function renderRow(pick) {
 function showSkeleton(tbody) {
   tbody.innerHTML = [...Array(5)].map(() => `
     <tr class="tp-skel-row">
-      <td colspan="8"><div class="tp-skel-line"></div></td>
+      <td colspan="9"><div class="tp-skel-line"></div></td>
     </tr>`).join('');
 }
 
 function fillTbody(picks, tbody) {
   if (!picks?.length) {
-    tbody.innerHTML = `<tr><td colspan="8" class="tp-no-data">${t('noData')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="tp-no-data">${t('noData')}</td></tr>`;
     return;
   }
   tbody.innerHTML = '';
@@ -228,18 +248,19 @@ export async function renderTopPicks(container) {
       <div class="tp-toggle">
         <button class="tp-toggle-btn active" data-tab="picks">Top Picks</button>
         <button class="tp-toggle-btn" data-tab="mag7">Mag 7</button>
-        <button class="tp-toggle-btn" data-tab="watchlist">★ Watchlist</button>
+        <button class="tp-toggle-btn" data-tab="watchlist">Watchlist</button>
       </div>
       <div class="tp-table-wrap">
         <table class="tp-table">
           <thead>
             <tr>
               <th class="tp-th-sym">${t('tpColStock')}</th>
-              <th>${t('tpColPrice')}</th>
-              <th>${t('tpColHigh52')}</th>
-              <th>${t('tpColDist')}</th>
-              <th>${t('tpColChange')}</th>
-              <th>${t('tpColMarketCap')}</th>
+              <th class="tp-th-center tp-th-star">★</th>
+              <th class="tp-th-num">${t('tpColPrice')}</th>
+              <th class="tp-th-num">${t('tpColHigh52')}</th>
+              <th class="tp-th-num">${t('tpColDist')}</th>
+              <th class="tp-th-num">${t('tpColChange')}</th>
+              <th class="tp-th-num">${t('tpColMarketCap')}</th>
               <th class="tp-th-center">${t('tpColMa200')}</th>
               <th class="tp-th-center">${t('tpColScore')}</th>
             </tr>
@@ -247,7 +268,7 @@ export async function renderTopPicks(container) {
           <tbody id="tp-tbody">
             ${[...Array(10)].map(() => `
               <tr class="tp-skel-row">
-                <td colspan="8"><div class="tp-skel-line"></div></td>
+                <td colspan="9"><div class="tp-skel-line"></div></td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -277,10 +298,18 @@ export async function renderTopPicks(container) {
         if (picks?.length) picksToCache(picks);
       }
     }
+    // Override Worker score with locally-computed score when available.
+    // The results page writes bon-score-{SYM} after a full calcScore() run
+    // which uses more data sources than the Worker (FMP + Yahoo + Finnhub).
+    picks = picks?.map(p => {
+      const local = getCachedScore(p.symbol);
+      if (local?.score != null) return { ...p, score: local.score, rating: local.rating };
+      return p;
+    });
     topPicksData = picks;
     fillTbody(picks, tbody);
   } catch {
-    tbody.innerHTML = `<tr><td colspan="8" class="tp-no-data">${t('noData')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="tp-no-data">${t('noData')}</td></tr>`;
   }
 
   // ── Toggle logic ──────────────────────────────────────────────────────────
@@ -303,7 +332,7 @@ export async function renderTopPicks(container) {
     setActive(btnWl);
     const wl = getWatchlist();
     if (!wl.length) {
-      tbody.innerHTML = `<tr><td colspan="8" class="tp-no-data">★ ${t('watchlistEmpty')}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="tp-no-data">★ ${t('watchlistEmpty')}</td></tr>`;
       return;
     }
     showSkeleton(tbody);

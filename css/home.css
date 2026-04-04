@@ -1513,10 +1513,13 @@
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
   text-align: right; /* numeric columns right-aligned by default */
+  direction: ltr;    /* match data cells so RTL layout doesn't shift alignment */
 }
-/* Stock column — left-aligned to match data cells */
+/* Stock column — left-aligned */
 .tp-table thead th.tp-th-sym { text-align: left; }
-/* Center-aligned columns: Score, MA200, Earnings */
+/* Numeric columns — right-aligned, matching tp-td-num data cells */
+.tp-table thead th.tp-th-num { text-align: right; direction: ltr; unicode-bidi: embed; }
+/* Center-aligned columns: Score, MA200, Star */
 .tp-table thead th.tp-th-center { text-align: center; }
 
 .tp-table tbody tr {
@@ -1539,6 +1542,8 @@
   flex-direction: column;
   gap: 1px;
   min-width: 90px;
+  direction: ltr;
+  text-align: left;
 }
 .tp-sym {
   font-size: 13px;
@@ -1576,6 +1581,26 @@
 /* Change colors */
 .tp-chg-up   { color: #22c55e; font-weight: 600; }
 .tp-chg-down { color: #ef4444; font-weight: 600; }
+
+/* Star / watchlist toggle */
+.tp-th-star { width: 28px; padding: 5px 4px !important; }
+.tp-td-star  { width: 28px; padding: 7px 4px !important; }
+.tp-star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-3);
+  padding: 2px 3px;
+  border-radius: 4px;
+  transition: color 0.15s, transform 0.1s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.tp-star-btn:hover       { color: #ca8a04; transform: scale(1.2); }
+.tp-star-btn.active      { color: #ca8a04; }
 
 /* MA200 */
 .tp-ma-yes { color: #22c55e; font-weight: 700; font-size: 14px; }
@@ -1615,12 +1640,13 @@
 }
 
 /* Mobile: hide low-priority columns (9-column layout) */
+/* Columns: 1=Stock 2=★ 3=Price 4=ATH 5=From ATH 6=Change 7=Mkt Cap 8=MA200 9=Score */
 @media (max-width: 600px) {
-  /* Hide ATH (col 4), Market Cap (col 7), MA200 (col 8) on mobile */
+  /* Hide ATH (col 4), Mkt Cap (col 7), MA200 (col 8) on mobile */
   .tp-table thead th:nth-child(4),
   .tp-table td:nth-child(4) { display: none; } /* ATH */
   .tp-table thead th:nth-child(7),
-  .tp-table td:nth-child(7) { display: none; } /* Market Cap */
+  .tp-table td:nth-child(7) { display: none; } /* Mkt Cap */
   .tp-table thead th:nth-child(8),
   .tp-table td:nth-child(8) { display: none; } /* MA200 */
 }
