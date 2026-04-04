@@ -117,13 +117,13 @@ function renderRow(pick) {
       <span class="tp-sym">${pick.symbol}</span>
       <span class="tp-name">${shortName}</span>
     </td>
-    <td class="tp-td-center"><span class="tp-badge ${badgeCls}">${pick.score}</span></td>
     <td class="tp-td-num">${fmtPrice(pick.price)}</td>
     <td class="tp-td-num">${fmtPrice(pick.high52)}</td>
     <td class="tp-td-num ${distCls}">${distTxt}</td>
     <td class="tp-td-num ${chgCls}">${chgTxt}</td>
     <td class="tp-td-num">${fmtMarketCap(pick.marketCap ?? null)}</td>
-    <td class="tp-td-center">${maTxt}</td>`;
+    <td class="tp-td-center">${maTxt}</td>
+    <td class="tp-td-center"><span class="tp-badge ${badgeCls}">${pick.score}</span></td>`;
 
   const nav = () => { if (typeof window.navigateTo === 'function') window.navigateTo('results', pick.symbol); };
   tr.addEventListener('click', nav);
@@ -145,13 +145,13 @@ export async function renderTopPicks(container) {
           <thead>
             <tr>
               <th class="tp-th-sym">${t('tpColStock')}</th>
-              <th class="tp-th-center">${t('tpColScore')}</th>
               <th>${t('tpColPrice')}</th>
               <th>${t('tpColHigh52')}</th>
               <th>${t('tpColDist')}</th>
               <th>${t('tpColChange')}</th>
               <th>${t('tpColMarketCap')}</th>
               <th class="tp-th-center">${t('tpColMa200')}</th>
+              <th class="tp-th-center">${t('tpColScore')}</th>
             </tr>
           </thead>
           <tbody id="tp-tbody">
