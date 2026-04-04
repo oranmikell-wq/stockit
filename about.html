@@ -3,7 +3,7 @@
 <head>
   <script>
     (function(){
-      var lang = localStorage.getItem('bon-lang') || 'en';
+      var lang = localStorage.getItem('bon-lang-v2') || 'en';
       var theme = localStorage.getItem('bon-theme') || 'dark';
       document.documentElement.lang = lang;
       document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
@@ -153,9 +153,9 @@
     }
 
     function toggleLang() {
-      var lang = localStorage.getItem('bon-lang') || 'en';
+      var lang = localStorage.getItem('bon-lang-v2') || 'en';
       var next = lang === 'en' ? 'he' : 'en';
-      localStorage.setItem('bon-lang', next);
+      localStorage.setItem('bon-lang-v2', next);
       window.location.reload();
     }
 

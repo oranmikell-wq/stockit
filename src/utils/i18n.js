@@ -1001,7 +1001,7 @@ export const TRANSLATIONS = {
   }
 };
 
-let currentLang = localStorage.getItem('bon-lang') || 'en';
+let currentLang = localStorage.getItem('bon-lang-v2') || 'en';
 
 export function t(key, vars = {}) {
   let str = TRANSLATIONS[currentLang][key] || TRANSLATIONS['he'][key] || key;
@@ -1015,7 +1015,7 @@ export function getCurrentLang() {
 
 export function setLang(lang) {
   currentLang = lang;
-  localStorage.setItem('bon-lang', lang);
+  localStorage.setItem('bon-lang-v2', lang);
   // Keep lang='en' always — changing it to 'he' causes browsers to auto-scale fonts.
   // Use dir + data-lang for layout/CSS targeting instead.
   document.documentElement.lang = 'en';

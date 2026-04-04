@@ -4,7 +4,7 @@
   <!-- Apply RTL immediately to avoid layout flash -->
   <script>
     (function(){
-      var lang = localStorage.getItem('bon-lang') || 'en';
+      var lang = localStorage.getItem('bon-lang-v2') || 'en';
       document.documentElement.lang = lang;
       document.documentElement.dir  = lang === 'he' ? 'rtl' : 'ltr';
     })();
