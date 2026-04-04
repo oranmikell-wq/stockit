@@ -69,6 +69,35 @@ async function localFallback() {
   return results.sort((a, b) => b.score - a.score).slice(0, 10);
 }
 
+// ── Mag 7 picks ───────────────────────────────────────────────────────────────
+const MAG7 = ['AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA'];
+let _mag7Cache = null;
+
+async function loadMag7Picks() {
+  if (_mag7Cache) return _mag7Cache;
+  const results = [];
+  await Promise.allSettled(MAG7.map(async sym => {
+    try {
+      const { data } = await fetchAllData(sym, true);
+      const cached   = getCachedScore(sym);
+      results.push({
+        symbol:    sym,
+        name:      data?.name ?? sym,
+        score:     cached?.score ?? null,
+        rating:    cached?.rating ?? 'wait',
+        price:     data?.price    ?? null,
+        changePct: data?.changePct ?? null,
+        ath:       data?.high52w  ?? null,
+        marketCap: data?.marketCap ?? null,
+        aboveMA200: null,
+      });
+    } catch {}
+  }));
+  // Keep original MAG7 order
+  _mag7Cache = MAG7.map(sym => results.find(r => r.symbol === sym)).filter(Boolean);
+  return _mag7Cache;
+}
+
 // ── Watchlist picks ───────────────────────────────────────────────────────────
 function getWatchlist() {
   try { return JSON.parse(localStorage.getItem('bon-watchlist') || '[]'); }
@@ -198,6 +227,7 @@ export async function renderTopPicks(container) {
     <div class="sidebar-card tp-card">
       <div class="tp-toggle">
         <button class="tp-toggle-btn active" data-tab="picks">Top Picks</button>
+        <button class="tp-toggle-btn" data-tab="mag7">Mag 7</button>
         <button class="tp-toggle-btn" data-tab="watchlist">★ Watchlist</button>
       </div>
       <div class="tp-table-wrap">
@@ -225,9 +255,12 @@ export async function renderTopPicks(container) {
       <p class="tp-disclaimer">${t('topPicksDisclaimer')}</p>
     </div>`;
 
-  const tbody   = container.querySelector('#tp-tbody');
+  const tbody    = container.querySelector('#tp-tbody');
   const btnPicks = container.querySelector('[data-tab="picks"]');
+  const btnMag7  = container.querySelector('[data-tab="mag7"]');
   const btnWl    = container.querySelector('[data-tab="watchlist"]');
+  const allBtns  = [btnPicks, btnMag7, btnWl];
+  const setActive = btn => allBtns.forEach(b => b.classList.toggle('active', b === btn));
 
   let topPicksData = null; // cache for this render
 
@@ -253,16 +286,21 @@ export async function renderTopPicks(container) {
   // ── Toggle logic ──────────────────────────────────────────────────────────
   btnPicks.addEventListener('click', () => {
     if (btnPicks.classList.contains('active')) return;
-    btnPicks.classList.add('active');
-    btnWl.classList.remove('active');
+    setActive(btnPicks);
     fillTbody(topPicksData, tbody);
+  });
+
+  btnMag7.addEventListener('click', async () => {
+    if (btnMag7.classList.contains('active')) return;
+    setActive(btnMag7);
+    showSkeleton(tbody);
+    const mag7Picks = await loadMag7Picks();
+    fillTbody(mag7Picks, tbody);
   });
 
   btnWl.addEventListener('click', async () => {
     if (btnWl.classList.contains('active')) return;
-    btnWl.classList.add('active');
-    btnPicks.classList.remove('active');
-
+    setActive(btnWl);
     const wl = getWatchlist();
     if (!wl.length) {
       tbody.innerHTML = `<tr><td colspan="8" class="tp-no-data">★ ${t('watchlistEmpty')}</td></tr>`;
