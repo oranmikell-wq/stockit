@@ -14,9 +14,6 @@ const FALLBACK_UNIVERSE = [
   'JPM','V','GS','JNJ','UNH',
 ];
 
-const getFinnhubKey = () =>
-  localStorage.getItem('bon-finnhub-key') || 'd6qup2hr01qgdhqcgpbgd6qup2hr01qgdhqcgpc0';
-
 // ── Local cache ───────────────────────────────────────────────────────────────
 function picksFromCache() {
   try {
@@ -71,25 +68,6 @@ async function localFallback() {
   return results.sort((a, b) => b.score - a.score).slice(0, 10);
 }
 
-// ── Earnings dates from Finnhub (async, non-blocking) ─────────────────────────
-async function fetchEarningsDates(symbols) {
-  const key  = getFinnhubKey();
-  const from = new Date().toISOString().slice(0, 10);
-  const to   = new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10);
-  const dates = {};
-  await Promise.allSettled(symbols.map(async sym => {
-    try {
-      const url = `https://finnhub.io/api/v1/calendar/earnings?symbol=${sym}&from=${from}&to=${to}&token=${key}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-      if (!res.ok) return;
-      const json = await res.json();
-      const next = json?.earningsCalendar?.[0];
-      if (next?.date) dates[sym] = next.date;
-    } catch {}
-  }));
-  return dates;
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtPrice(p) {
   if (p == null) return '-';
@@ -110,19 +88,9 @@ function fmtDist(price, high52) {
   return (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
 }
 
-function fmtEarnings(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr + 'T00:00:00');
-  if (isNaN(d)) return null;
-  const diffDays = Math.round((d - Date.now()) / 864e5);
-  const lang   = localStorage.getItem('bon-lang') || 'he';
-  const locale = lang === 'en' ? 'en-US' : 'he-IL';
-  const label  = d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
-  return { label, soon: diffDays >= 0 && diffDays <= 14 };
-}
 
 // ── Render single row ─────────────────────────────────────────────────────────
-function renderRow(pick, earningsDate) {
+function renderRow(pick) {
   const badgeCls = pick.rating === 'buy' ? 'tp-badge-buy'
                  : pick.rating === 'sell' ? 'tp-badge-sell' : 'tp-badge-wait';
 
@@ -137,11 +105,6 @@ function renderRow(pick, earningsDate) {
   const maTxt = pick.aboveMA200 === true  ? '<span class="tp-ma-yes">✓</span>'
               : pick.aboveMA200 === false ? '<span class="tp-ma-no">✗</span>'
               :                            '<span class="tp-ma-na">-</span>';
-
-  const earn    = fmtEarnings(earningsDate);
-  const earnHtml = earn
-    ? `<span class="tp-earn${earn.soon ? ' soon' : ''}">${earn.label}</span>`
-    : `<span class="tp-earn">-</span>`;
 
   const shortName = pick.name?.length > 22
     ? pick.name.slice(0, 20) + '…' : (pick.name ?? pick.symbol);
@@ -160,8 +123,7 @@ function renderRow(pick, earningsDate) {
     <td class="tp-td-num ${distCls}">${distTxt}</td>
     <td class="tp-td-num ${chgCls}">${chgTxt}</td>
     <td class="tp-td-num">${fmtMarketCap(pick.marketCap ?? null)}</td>
-    <td class="tp-td-center">${maTxt}</td>
-    <td class="tp-td-center">${earnHtml}</td>`;
+    <td class="tp-td-center">${maTxt}</td>`;
 
   const nav = () => { if (typeof window.navigateTo === 'function') window.navigateTo('results', pick.symbol); };
   tr.addEventListener('click', nav);
@@ -190,13 +152,12 @@ export async function renderTopPicks(container) {
               <th>${t('tpColChange')}</th>
               <th>${t('tpColMarketCap')}</th>
               <th class="tp-th-center">${t('tpColMa200')}</th>
-              <th class="tp-th-center">${t('tpColReport')}</th>
             </tr>
           </thead>
           <tbody id="tp-tbody">
             ${[...Array(10)].map(() => `
               <tr class="tp-skel-row">
-                <td colspan="9"><div class="tp-skel-line"></div></td>
+                <td colspan="8"><div class="tp-skel-line"></div></td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -221,7 +182,7 @@ export async function renderTopPicks(container) {
     }
 
     if (!picks?.length) {
-      tbody.innerHTML = `<tr><td colspan="9" class="tp-no-data">${t('noData')}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="tp-no-data">${t('noData')}</td></tr>`;
       return;
     }
 
@@ -229,27 +190,13 @@ export async function renderTopPicks(container) {
     tbody.innerHTML = '';
     const rowMap = {};
     picks.forEach(pick => {
-      const tr = renderRow(pick, null);
+      const tr = renderRow(pick);
       rowMap[pick.symbol] = tr;
       tbody.appendChild(tr);
     });
 
-    // Fetch earnings async — update cells when ready
-    fetchEarningsDates(picks.map(p => p.symbol)).then(dates => {
-      Object.entries(dates).forEach(([sym, dateStr]) => {
-        const tr = rowMap[sym];
-        if (!tr) return;
-        const cell = tr.querySelector('.tp-earn');
-        if (!cell) return;
-        const earn = fmtEarnings(dateStr);
-        if (earn) {
-          cell.textContent = earn.label;
-          if (earn.soon) cell.classList.add('soon');
-        }
-      });
-    });
 
   } catch {
-    tbody.innerHTML = `<tr><td colspan="9" class="tp-no-data">${t('noData')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="tp-no-data">${t('noData')}</td></tr>`;
   }
 }
