@@ -1459,22 +1459,11 @@
   width: 100%;
 }
 
-/* ── Top Picks Header + Toggle ───────────────────────────────────────────── */
-.tp-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  gap: 8px;
-}
-.tp-header .section-title {
-  margin: 0;
-}
-
+/* ── Top Picks Toggle ────────────────────────────────────────────────────── */
 .tp-toggle {
   display: flex;
   gap: 4px;
-  flex-shrink: 0;
+  margin-bottom: 10px;
 }
 
 .tp-toggle-btn {

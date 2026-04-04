@@ -196,12 +196,9 @@ export async function renderTopPicks(container) {
 
   container.innerHTML = `
     <div class="sidebar-card tp-card">
-      <div class="tp-header">
-        <h2 class="section-title card-title">${t('topPicksTitle')}</h2>
-        <div class="tp-toggle">
-          <button class="tp-toggle-btn active" data-tab="picks">Top Picks</button>
-          <button class="tp-toggle-btn" data-tab="watchlist">★ Watchlist</button>
-        </div>
+      <div class="tp-toggle">
+        <button class="tp-toggle-btn active" data-tab="picks">Top Picks</button>
+        <button class="tp-toggle-btn" data-tab="watchlist">★ Watchlist</button>
       </div>
       <div class="tp-table-wrap">
         <table class="tp-table">
