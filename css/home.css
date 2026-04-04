@@ -1056,7 +1056,7 @@
   .market-card:has(.market-change.positive) { border-left-color: var(--green); }
   .market-card-left { display: flex; flex-direction: column; gap: 3px; }
   .market-name   { font-size: 10px; }
-  .market-price  { font-size: 17px; }
+  .market-price  { font-size: 14px; }
   .market-change { font-size: 12px; }
 
   .trending-section { background: none; }
