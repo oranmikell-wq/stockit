@@ -1043,21 +1043,21 @@
     box-shadow: var(--shadow-sm);
   }
   .market-card {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 8px 10px;
     border-left: 3px solid transparent;
     border-radius: 8px;
     box-shadow: none;
     background: var(--card-bg);
+    gap: 1px;
   }
   .market-card:has(.market-change.negative) { border-left-color: var(--red); }
   .market-card:has(.market-change.positive) { border-left-color: var(--green); }
-  .market-card-left { display: flex; flex-direction: column; gap: 3px; }
-  .market-name   { font-size: 10px; }
-  .market-price  { font-size: 14px; }
-  .market-change { font-size: 12px; }
+  .market-card-left { display: contents; }
+  .market-name   { font-size: 9px; }
+  .market-price  { font-size: 13px; }
+  .market-change { font-size: 11px; }
 
   .trending-section { background: none; }
 
