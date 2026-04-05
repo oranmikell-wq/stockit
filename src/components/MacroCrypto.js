@@ -135,8 +135,10 @@ export async function loadCryptoPrices(containerId = 'crypto-prices-container') 
       return `
         <div class="market-card ${chgClass}">
           <span class="market-name">${name}</span>
-          <span class="market-price">$${price.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-          <span class="market-change ${chgClass}">${sign}${change.toFixed(2)}%</span>
+          <div class="market-values">
+            <span class="market-price">$${price.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            <span class="market-change ${chgClass}">${sign}${change.toFixed(2)}%</span>
+          </div>
         </div>`;
     }
 

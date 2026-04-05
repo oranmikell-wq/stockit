@@ -75,8 +75,10 @@ export async function loadCommodities() {
     const cStr  = pct  != null ? `${sign}${pct.toFixed(2)}%` : '--';
     return `<div class="market-card ${cls}">
       <span class="market-name">${name}</span>
-      <span class="market-price">${pStr}</span>
-      <span class="market-change ${cls}">${cStr}</span>
+      <div class="market-values">
+        <span class="market-price">${pStr}</span>
+        <span class="market-change ${cls}">${cStr}</span>
+      </div>
     </div>`;
   }).join('');
 }
