@@ -144,7 +144,7 @@ const ALLOWED_HOSTS = [
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const KV_KEY        = 'top-picks-v9';   // v9: full fundamentals + criteria scores
-const KV_SCORES_KEY = 'all-scores-v2';  // v2: complete data per stock for browser fast path
+const KV_SCORES_KEY = 'all-scores-v3';  // v3: added FMP PEG + Short Float
 
 // ── Main export ───────────────────────────────────────────────────────────────
 export default {
@@ -402,7 +402,7 @@ async function runDailyScan(env) {
 // ── Score a single stock — uses exact scoring.js formula ─────────────────────
 async function scoreStock(symbol, env) {
   try {
-    const [chart, metrics, earningsArr, shortData, profile, finviz, insiderTxn] = await Promise.all([
+    const [chart, metrics, earningsArr, shortData, profile, finviz, insiderTxn, fmpMetrics] = await Promise.all([
       fetchChart(symbol),
       fetchFinnhubMetrics(symbol, env.FINNHUB_KEY),
       fetchFinnhubEarnings(symbol, env.FINNHUB_KEY),
@@ -410,6 +410,7 @@ async function scoreStock(symbol, env) {
       fetchFinnhubProfile(symbol, env.FINNHUB_KEY),
       fetchFinvizData(symbol),
       fetchInsiderTransactions(symbol),
+      fetchFMPKeyMetrics(symbol, env.FMP_KEY),
     ]);
 
     // Fetch EDGAR after chart so we have price
@@ -442,7 +443,7 @@ async function scoreStock(symbol, env) {
     const pfcf = m.pfcfShareTTM ?? null;
     const syntheticFCF = (pfcf != null && pfcf > 0 && marketCap != null) ? marketCap / pfcf : null;
 
-    // ── Short Float % — Finviz first, Finnhub as fallback ────────
+    // ── Short Float % — Finviz first (blocked), Finnhub as fallback ──────────
     const latestShort = shortData?.data?.[shortData.data.length - 1];
     let shortFloat = finviz?.shortFloat ?? null;
     if (shortFloat == null && latestShort?.shortInterest && latestShort?.sharesOutstanding && latestShort.sharesOutstanding > 0) {
@@ -478,13 +479,14 @@ async function scoreStock(symbol, env) {
     const fcfFinal            = edgar?.fcf            ?? syntheticFCF;
     const opMarginFinal       = edgar?.operatingMargin ?? m.operatingMarginTTM   ?? null;
 
-    // ── PEG — Finnhub first, synthetic fallback: P/E ÷ EPS growth % ──────
-    const pegRaw = m.pegNormalizedAnnual ?? null;
+    // ── PEG — FMP first (most accurate), Finnhub second, synthetic fallback ──
     const peFinal = m.peTTM ?? null;
-    const pegSynthetic = (pegRaw == null && peFinal != null && peFinal > 0 && epsGrowthFinal != null && epsGrowthFinal > 0)
+    const pegFMP  = fmpMetrics?.peg ?? null;
+    const pegFinnhub = m.pegNormalizedAnnual ?? null;
+    const pegSynthetic = (peFinal != null && peFinal > 0 && epsGrowthFinal != null && epsGrowthFinal > 0)
       ? peFinal / epsGrowthFinal
       : null;
-    const pegFinal = pegRaw ?? pegSynthetic;
+    const pegFinal = pegFMP ?? pegFinnhub ?? pegSynthetic;
 
     // ── Growth family (35%) ───────────────────────────────────────
     const familyGrowth = wAvg([
@@ -511,10 +513,11 @@ async function scoreStock(symbol, env) {
     ]);
 
     // ── Technical family (20%) ────────────────────────────────────
+    const macdVal = calcMACD(closes);
     const familyTechnical = wAvg([
       { score: scoreMA200Position(price, ma200),   weight: TECHNICAL_WEIGHTS.ma200        },
       { score: scoreDistFromHigh(price, high52w),  weight: TECHNICAL_WEIGHTS.distFromHigh },
-      { score: scoreShortFloat(shortFloat),        weight: TECHNICAL_WEIGHTS.shortFloat   },
+      { score: scoreMACD(macdVal, price),          weight: TECHNICAL_WEIGHTS.macd         },
       { score: scoreRSI(rsi),                      weight: TECHNICAL_WEIGHTS.rsi          },
     ]);
 
@@ -593,7 +596,8 @@ async function scoreStock(symbol, env) {
         currentRatio:     scoreCurrentRatio(m.currentRatioAnnual ?? null),
         ma200:            scoreMA200Position(price, ma200),
         distFromHigh:     scoreDistFromHigh(price, high52w),
-        shortFloat:       scoreShortFloat(shortFloat),
+        shortFloat:       scoreShortFloat(shortFloat),  // kept for display; not in family
+        macdScore:        scoreMACD(macdVal, price),
         rsiScore:         scoreRSI(rsi),
         debt:             scoreDebt(debtEquityFinal, sectorKey),
         institutional:    finviz?.instOwn ?? null,
@@ -876,7 +880,7 @@ const FAMILY_WEIGHTS    = { growth: 0.35, valuation: 0.25, quality: 0.20, techni
 const GROWTH_WEIGHTS    = { epsSurprise: 0.50, eps: 0.30, revenue: 0.20 };
 const VALUATION_WEIGHTS = { peg: 0.50, fcf: 0.30, pe: 0.20 };
 const QUALITY_WEIGHTS   = { operatingMargin: 0.35, insiderOwnership: 0.25, roe: 0.25, currentRatio: 0.15 };
-const TECHNICAL_WEIGHTS = { ma200: 0.40, distFromHigh: 0.25, shortFloat: 0.20, rsi: 0.15 };
+const TECHNICAL_WEIGHTS = { ma200: 0.40, distFromHigh: 0.25, macd: 0.20, rsi: 0.15 };
 
 const SECTOR_PE = {
   technology: [15,25,40,60], financials: [8,12,18,25], energy: [8,12,18,25],
@@ -1031,6 +1035,19 @@ function scoreShortFloat(pct) {
   if (pct <= 2) return 95; if (pct <= 5)  return 80;
   if (pct <= 10) return 60; if (pct <= 15) return 40;
   if (pct <= 25) return 20; return 5;
+}
+
+// MACD score: normalised to price so it's comparable across stocks
+// macd/price as % → bullish = high score, bearish = low score
+function scoreMACD(macd, price) {
+  if (macd == null || price == null || price === 0) return null;
+  const pct = (macd / price) * 100; // e.g. +2 = 2% above signal
+  if (pct >=  3) return 90;
+  if (pct >=  1) return 75;
+  if (pct >=  0) return 60;
+  if (pct >= -1) return 40;
+  if (pct >= -3) return 25;
+  return 10;
 }
 
 function scoreRSI(rsi) {
@@ -1372,6 +1389,24 @@ async function fetchFinvizData(symbol) {
       insiderOwn:   pct(data['Insider Own']),    // e.g. "0.28" → 0.28%
       instOwn:      pct(data['Inst Own']),       // e.g. "72.5" → 72.5%
     };
+  } catch { return null; }
+}
+
+// ── FMP: PEG ratio from /stable/ratios-ttm ────────────────────────────────────
+async function fetchFMPKeyMetrics(symbol, fmpKey) {
+  if (!fmpKey) return null;
+  try {
+    const res = await fetch(
+      `https://financialmodelingprep.com/stable/ratios-ttm?symbol=${encodeURIComponent(symbol)}&apikey=${fmpKey}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || row['Error Message']) return null;
+    // priceToEarningsGrowthRatioTTM = PEG ratio
+    const peg = row.priceToEarningsGrowthRatioTTM ?? null;
+    return { peg: (peg != null && isFinite(peg) && peg > 0) ? peg : null };
   } catch { return null; }
 }
 
