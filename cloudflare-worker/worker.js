@@ -402,13 +402,14 @@ async function runDailyScan(env) {
 // ── Score a single stock — uses exact scoring.js formula ─────────────────────
 async function scoreStock(symbol, env) {
   try {
-    const [chart, metrics, earningsArr, shortData, profile, finviz] = await Promise.all([
+    const [chart, metrics, earningsArr, shortData, profile, finviz, insiderTxn] = await Promise.all([
       fetchChart(symbol),
       fetchFinnhubMetrics(symbol, env.FINNHUB_KEY),
       fetchFinnhubEarnings(symbol, env.FINNHUB_KEY),
       fetchFinnhubShortInterest(symbol, env.FINNHUB_KEY),
       fetchFinnhubProfile(symbol, env.FINNHUB_KEY),
       fetchFinvizData(symbol),
+      fetchInsiderTransactions(symbol),
     ]);
 
     // Fetch EDGAR after chart so we have price
@@ -500,9 +501,11 @@ async function scoreStock(symbol, env) {
     ]);
 
     // ── Quality family (20%) ──────────────────────────────────────
+    // insiderOwnership: prefer Form-4 transactions score; fallback to raw % if no EDGAR data
+    const insiderScore = scoreInsiderTransactions(insiderTxn) ?? scoreInsiderOwnership(insiderOwnership);
     const familyQuality = wAvg([
       { score: scoreOperatingMargin(opMarginFinal, sectorKey), weight: QUALITY_WEIGHTS.operatingMargin  },
-      { score: scoreInsiderOwnership(insiderOwnership),         weight: QUALITY_WEIGHTS.insiderOwnership },
+      { score: insiderScore,                                    weight: QUALITY_WEIGHTS.insiderOwnership },
       { score: scoreROE(m.roeTTM ?? null),                     weight: QUALITY_WEIGHTS.roe              },
       { score: scoreCurrentRatio(m.currentRatioAnnual ?? null),weight: QUALITY_WEIGHTS.currentRatio     },
     ]);
@@ -554,6 +557,7 @@ async function scoreStock(symbol, env) {
       currentRatio:    m.currentRatioAnnual ?? null,
       operatingMargin: opMarginFinal != null ? opMarginFinal * 100 : null,
       insiderOwnership,
+      insiderTxn,
       shortFloat,
       epsGrowth:       epsGrowthFinal != null ? epsGrowthFinal * 100 : null,
       revenueGrowth:   revenueGrowthFinal != null ? revenueGrowthFinal * 100 : null,
@@ -584,7 +588,7 @@ async function scoreStock(symbol, env) {
         peOnly:           scorePEonly(m.peTTM ?? null, sectorKey),
         multiples:        scoreMultiples(m.peTTM ?? null, m.pbAnnual ?? null, m.psAnnual ?? null, sectorKey),
         operatingMargin:  scoreOperatingMargin(opMarginFinal, sectorKey),
-        insiderOwnership: scoreInsiderOwnership(insiderOwnership),
+        insiderOwnership: insiderScore,
         roe:              scoreROE(m.roeTTM ?? null),
         currentRatio:     scoreCurrentRatio(m.currentRatioAnnual ?? null),
         ma200:            scoreMA200Position(price, ma200),
@@ -719,6 +723,73 @@ async function fetchEdgarConcept(cik, concept, unit = 'USD') {
       .sort((a, b) => b.end.localeCompare(a.end));
     return [arr[0]?.val ?? null, arr[1]?.val ?? null];
   } catch { return [null, null]; }
+}
+
+// ── Insider Transactions from SEC EDGAR Form 4 ───────────────────────────────
+async function fetchInsiderTransactions(symbol) {
+  const cik = EDGAR_CIK[symbol.toUpperCase()];
+  if (!cik) return null;
+  try {
+    const paddedCik = String(cik).padStart(10, '0');
+    const res = await fetch(`https://data.sec.gov/submissions/CIK${paddedCik}.json`, {
+      headers: { 'User-Agent': 'BullTherapy/1.0 info@bulltherapy.com' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const sub = await res.json();
+
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 6);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+    const forms    = sub.filings?.recent?.form           ?? [];
+    const dates    = sub.filings?.recent?.filingDate     ?? [];
+    const accNums  = sub.filings?.recent?.accessionNumber ?? [];
+    const primDocs = sub.filings?.recent?.primaryDocument ?? [];
+
+    const recent = [];
+    for (let i = 0; i < forms.length && recent.length < 8; i++) {
+      if (forms[i] === '4' && dates[i] >= cutoffStr) {
+        // primaryDocument may have an XSL prefix like "xslF345X06/form4.xml" — strip it
+        const rawDoc = primDocs[i];
+        const docFile = rawDoc.includes('/') ? rawDoc.split('/').slice(1).join('/') : rawDoc;
+        recent.push({ acc: accNums[i].replace(/-/g, ''), doc: docFile });
+      }
+    }
+    if (!recent.length) return { buys: 0, sells: 0 };
+
+    let buys = 0, sells = 0;
+    await Promise.allSettled(recent.slice(0, 5).map(async ({ acc, doc }) => {
+      try {
+        const xmlUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${acc}/${doc}`;
+        const xmlRes = await fetch(xmlUrl, {
+          headers: { 'User-Agent': 'BullTherapy/1.0 info@bulltherapy.com' },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!xmlRes.ok) return;
+        const xml = await xmlRes.text();
+        // Match both plain (<transactionAcquiredDisposedCode>A</...>) and nested (<value>A</value>) formats
+        const blocks = xml.match(/<transactionAcquiredDisposedCode>[\s\S]*?<\/transactionAcquiredDisposedCode>/gi) || [];
+        for (const block of blocks) {
+          if (/<value>\s*A\s*<\/value>/i.test(block) || /^<transactionAcquiredDisposedCode>\s*A\s*<\/transactionAcquiredDisposedCode>$/i.test(block.trim())) {
+            buys++;
+          } else if (/<value>\s*D\s*<\/value>/i.test(block) || /^<transactionAcquiredDisposedCode>\s*D\s*<\/transactionAcquiredDisposedCode>$/i.test(block.trim())) {
+            sells++;
+          }
+        }
+      } catch {}
+    }));
+
+    return { buys, sells };
+  } catch { return null; }
+}
+
+function scoreInsiderTransactions(data) {
+  if (!data) return null;
+  const { buys, sells } = data;
+  const total = buys + sells;
+  if (total === 0) return 50; // no activity = neutral
+  return Math.round(10 + (buys / total) * 80); // 100% buys→90, 100% sells→10
 }
 
 async function fetchEdgarFundamentals(symbol, price) {
