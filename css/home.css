@@ -596,7 +596,7 @@
 .market-status-label {
   font-size: 9px;
   font-weight: 600;
-  color: var(--text-3);
+  color: var(--text);
   letter-spacing: 0.3px;
 }
 
