@@ -344,6 +344,10 @@ async function scoreStock(symbol, env) {
       fetchFinnhubProfile(symbol, env.FINNHUB_KEY),
     ]);
 
+    // Fetch EDGAR after chart so we have price
+    const edgarPrice = chart?.price ?? null;
+    const edgar = await fetchEdgarFundamentals(symbol, edgarPrice);
+
     const m          = metrics?.metric || {};
     const hasChart   = chart && chart.closes.length >= 10;
     const hasFinnhub = metrics != null;
@@ -395,26 +399,33 @@ async function scoreStock(symbol, env) {
     // ── Sector key from Finnhub profile (same getSectorKey logic as scoring.js)
     const sectorKey = getSectorKey(profile?.finnhubIndustry ?? null);
 
+    // EDGAR overrides Finnhub where available (more accurate annual data)
+    const epsGrowthFinal      = edgar?.epsGrowth      ?? m.epsGrowthTTMYoy      ?? null;
+    const revenueGrowthFinal  = edgar?.revenueGrowth  ?? m.revenueGrowthTTMYoy  ?? null;
+    const debtEquityFinal     = edgar?.debtEquity     ?? (m['longTermDebt/equityAnnual'] != null ? m['longTermDebt/equityAnnual'] * 100 : null);
+    const fcfFinal            = edgar?.fcf            ?? syntheticFCF;
+    const opMarginFinal       = edgar?.operatingMargin ?? m.operatingMarginTTM   ?? null;
+
     // ── Growth family (35%) ───────────────────────────────────────
     const familyGrowth = wAvg([
-      { score: scoreEPSSurprise(epsSurprise),                    weight: GROWTH_WEIGHTS.epsSurprise },
-      { score: scoreEPS(m.epsGrowthTTMYoy ?? null),              weight: GROWTH_WEIGHTS.eps         },
-      { score: scoreRevenue(m.revenueGrowthTTMYoy ?? null),      weight: GROWTH_WEIGHTS.revenue     },
+      { score: scoreEPSSurprise(epsSurprise),         weight: GROWTH_WEIGHTS.epsSurprise },
+      { score: scoreEPS(epsGrowthFinal),              weight: GROWTH_WEIGHTS.eps         },
+      { score: scoreRevenue(revenueGrowthFinal),      weight: GROWTH_WEIGHTS.revenue     },
     ]);
 
     // ── Valuation family (25%) ────────────────────────────────────
     const familyValuation = wAvg([
-      { score: scorePEG(m.pegNormalizedAnnual ?? null),           weight: VALUATION_WEIGHTS.peg },
-      { score: scoreFCF(syntheticFCF, marketCap),                 weight: VALUATION_WEIGHTS.fcf },
-      { score: scorePEonly(m.peTTM ?? null, sectorKey),           weight: VALUATION_WEIGHTS.pe  },
+      { score: scorePEG(m.pegNormalizedAnnual ?? null), weight: VALUATION_WEIGHTS.peg },
+      { score: scoreFCF(fcfFinal, marketCap),           weight: VALUATION_WEIGHTS.fcf },
+      { score: scorePEonly(m.peTTM ?? null, sectorKey), weight: VALUATION_WEIGHTS.pe  },
     ]);
 
     // ── Quality family (20%) ──────────────────────────────────────
     const familyQuality = wAvg([
-      { score: scoreOperatingMargin(m.operatingMarginTTM ?? null, sectorKey), weight: QUALITY_WEIGHTS.operatingMargin  },
-      { score: scoreInsiderOwnership(insiderOwnership),                        weight: QUALITY_WEIGHTS.insiderOwnership },
-      { score: scoreROE(m.roeTTM ?? null),                                    weight: QUALITY_WEIGHTS.roe              },
-      { score: scoreCurrentRatio(m.currentRatioAnnual ?? null),               weight: QUALITY_WEIGHTS.currentRatio     },
+      { score: scoreOperatingMargin(opMarginFinal, sectorKey), weight: QUALITY_WEIGHTS.operatingMargin  },
+      { score: scoreInsiderOwnership(insiderOwnership),         weight: QUALITY_WEIGHTS.insiderOwnership },
+      { score: scoreROE(m.roeTTM ?? null),                     weight: QUALITY_WEIGHTS.roe              },
+      { score: scoreCurrentRatio(m.currentRatioAnnual ?? null),weight: QUALITY_WEIGHTS.currentRatio     },
     ]);
 
     // ── Technical family (20%) ────────────────────────────────────
@@ -512,6 +523,86 @@ async function fetchFinnhubProfile(symbol, key) {
 // ── Fetch Yahoo Finance chart (close prices + meta) ───────────────────────────
 // Uses 5Y weekly: gives enough data for ATH, MA200 (weekly), and RSI.
 // high52 / low52 still come from Yahoo meta (always accurate).
+// ── SEC EDGAR CIK map ─────────────────────────────────────────────────────────
+const EDGAR_CIK = {
+  AAPL:'320193',MSFT:'789019',GOOGL:'1652044',GOOG:'1652044',AMZN:'1018724',
+  NVDA:'1045810',META:'1326801',TSLA:'1318605',AVGO:'1730168',V:'1403161',
+  MA:'1141391',JPM:'19617',UNH:'731766',LLY:'59478',HD:'354950',MRK:'310158',
+  ABBV:'1551152',COST:'909832',JNJ:'200406',BAC:'70858',WMT:'104169',
+  XOM:'34088',PG:'80424',WFC:'72971',AMD:'2488',ORCL:'1341439',
+  NFLX:'1065280',CRM:'1108524',INTC:'50863',CSCO:'858877',QCOM:'804328',
+  PFE:'78003',TXN:'97476',IBM:'51143',GS:'886982',MS:'895421',
+  DIS:'1001039',KO:'21344',PEP:'77476',CAT:'18230',CVX:'93410',
+  GE:'40533',MCD:'63908',BA:'12927',PYPL:'1633917',UBER:'1543151',
+  ABNB:'1559720',PLTR:'1321655',SNOW:'1640147',T:'732717',VZ:'732712',
+  MRNA:'1682852',MU:'723254',AMAT:'796343',LRCX:'707549',KLAC:'319201',
+  ADI:'6951',MRVL:'1058057',ON:'861284',CDNS:'813672',SNPS:'883241',
+  ENPH:'1463101',FSLR:'1274439',
+  BP:'313807',CVS:'1547903',WBA:'105378',ELV:'1156039',CI:'723254',
+  HCA:'860731',MDT:'310764',ABT:'1800',TMO:'97210',DHR:'790070',
+  SYK:'310764',ZTS:'1555280',ISRG:'1035267',REGN:'872589',VRTX:'875320',
+  GILD:'882095',BIIB:'875045',NEE:'753308',DUK:'18978',SO:'92521',
+  AEP:'4904',SRE:'1032975',PLD:'1045609',AMT:'1053507',EQIX:'1101239',
+  PSA:'77890',SPG:'1063761',SBUX:'829224',TGT:'27419',LOW:'60667',
+  NKE:'320187',TJX:'109198',BKNG:'1075531',MAR:'1048268',HLT:'1466132',
+  USB:'36270',PNC:'713676',TFC:'92230',COF:'927628',BLK:'1364742',
+  AXP:'4962',SCHW:'316943',SPGI:'64040',MCO:'1059556',ICE:'1571949',
+  CME:'1156375',CB:'896159',PGR:'80661',MMC:'62234',MET:'1099219',
+  PRU:'1137774',AFL:'4977',ALL:'899051',AIG:'5272',AMGN:'318154',
+  BMY:'14272',BSX:'1035267',EW:'1099800',BDX:'10795',RMD:'845733',
+  WM:'823768',RSG:'1060349',DE:'315189',HON:'773840',RTX:'101829',
+  LMT:'936468',NOC:'1133421',GD:'40533',EMR:'32604',ETN:'31462',
+  PH:'76334',MMM:'66740',
+};
+
+async function fetchEdgarConcept(cik, concept, unit = 'USD') {
+  const url = `https://data.sec.gov/api/xbrl/companyconcept/CIK${String(cik).padStart(10,'0')}/us-gaap/${concept}.json`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return [null, null];
+    const j = await res.json();
+    const arr = (j?.units?.[unit] ?? [])
+      .filter(d => (d.form === '10-K' || d.form === '20-F') && d.val != null)
+      .sort((a, b) => b.end.localeCompare(a.end));
+    return [arr[0]?.val ?? null, arr[1]?.val ?? null];
+  } catch { return [null, null]; }
+}
+
+async function fetchEdgarFundamentals(symbol, price) {
+  const cik = EDGAR_CIK[symbol.toUpperCase()];
+  if (!cik || !price) return null;
+  try {
+    const [
+      [eps, epsPrev], [rev, revPrev], [rev2, rev2Prev], [rev3],
+      [equity], [shares], [debt], [operatingCF], [capex], [operatingIncome],
+    ] = await Promise.all([
+      fetchEdgarConcept(cik, 'EarningsPerShareDiluted', 'USD/shares'),
+      fetchEdgarConcept(cik, 'Revenues'),
+      fetchEdgarConcept(cik, 'RevenueFromContractWithCustomerExcludingAssessedTax'),
+      fetchEdgarConcept(cik, 'RevenuesNetOfInterestExpense'),
+      fetchEdgarConcept(cik, 'StockholdersEquity'),
+      fetchEdgarConcept(cik, 'CommonStockSharesOutstanding', 'shares'),
+      fetchEdgarConcept(cik, 'LongTermDebt'),
+      fetchEdgarConcept(cik, 'NetCashProvidedByUsedInOperatingActivities'),
+      fetchEdgarConcept(cik, 'PaymentsToAcquirePropertyPlantAndEquipment'),
+      fetchEdgarConcept(cik, 'OperatingIncomeLoss'),
+    ]);
+    const revActual     = rev  ?? rev2  ?? rev3  ?? null;
+    const revPrevActual = revPrev ?? rev2Prev ?? null;
+    const epsGrowth = (eps && epsPrev && epsPrev !== 0)
+      ? (eps - epsPrev) / Math.abs(epsPrev) : null; // decimal
+    const revenueGrowth = (revActual && revPrevActual && revPrevActual !== 0)
+      ? (revActual - revPrevActual) / Math.abs(revPrevActual) : null; // decimal
+    const debtEquity = (debt != null && equity && equity !== 0)
+      ? (debt / equity) * 100 : null; // same format as Finnhub (x100)
+    const fcf = (operatingCF != null && capex != null) ? operatingCF - capex
+              : operatingCF != null ? operatingCF : null;
+    const operatingMargin = (operatingIncome != null && revActual && revActual !== 0)
+      ? operatingIncome / revActual : null; // decimal
+    return { epsGrowth, revenueGrowth, debtEquity, fcf, operatingMargin };
+  } catch { return null; }
+}
+
 async function fetchChart(symbol) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5y&interval=1wk&includePrePost=false`;
   try {
