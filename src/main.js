@@ -318,9 +318,23 @@ function navigateTo(page, symbol = null) {
   updateURLParam(page, symbol);
   if (page === 'home') {
     renderHomeWatchlist();
-    // Re-render Top Picks if cache was invalidated (e.g. after visiting speedometer)
     if (!localStorage.getItem('bon-toppicks-v10')) {
       renderTopPicks(document.getElementById('top-picks-section'));
+    } else {
+      // Patch scores in-place with any fresh browser-computed scores
+      document.querySelectorAll('#tp-tbody tr[data-symbol]').forEach(row => {
+        const sym = row.dataset.symbol;
+        if (!sym) return;
+        const raw = localStorage.getItem(`bon-score-${sym.toUpperCase()}`);
+        if (!raw) return;
+        const { score, rating, ts } = JSON.parse(raw);
+        if (!ts || Date.now() - ts > 24 * 60 * 60 * 1000) return;
+        const badge = row.querySelector('.tp-badge');
+        if (badge && score != null) {
+          badge.textContent = score;
+          badge.className = `tp-badge ${rating === 'buy' ? 'tp-badge-buy' : rating === 'sell' ? 'tp-badge-sell' : 'tp-badge-wait'}`;
+        }
+      });
     }
   }
   if (page === 'market' && !_marketDataLoaded) {
