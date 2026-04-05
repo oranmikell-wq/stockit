@@ -402,12 +402,13 @@ async function runDailyScan(env) {
 // ── Score a single stock — uses exact scoring.js formula ─────────────────────
 async function scoreStock(symbol, env) {
   try {
-    const [chart, metrics, earningsArr, shortData, profile] = await Promise.all([
+    const [chart, metrics, earningsArr, shortData, profile, finviz] = await Promise.all([
       fetchChart(symbol),
       fetchFinnhubMetrics(symbol, env.FINNHUB_KEY),
       fetchFinnhubEarnings(symbol, env.FINNHUB_KEY),
       fetchFinnhubShortInterest(symbol, env.FINNHUB_KEY),
       fetchFinnhubProfile(symbol, env.FINNHUB_KEY),
+      fetchFinvizData(symbol),
     ]);
 
     // Fetch EDGAR after chart so we have price
@@ -440,20 +441,18 @@ async function scoreStock(symbol, env) {
     const pfcf = m.pfcfShareTTM ?? null;
     const syntheticFCF = (pfcf != null && pfcf > 0 && marketCap != null) ? marketCap / pfcf : null;
 
-    // ── Short Float % ─────────────────────────────────────────────
+    // ── Short Float % — Finviz first, Finnhub as fallback ────────
     const latestShort = shortData?.data?.[shortData.data.length - 1];
-    let shortFloat = null;
-    if (latestShort?.shortInterest && latestShort?.sharesOutstanding && latestShort.sharesOutstanding > 0) {
+    let shortFloat = finviz?.shortFloat ?? null;
+    if (shortFloat == null && latestShort?.shortInterest && latestShort?.sharesOutstanding && latestShort.sharesOutstanding > 0) {
       shortFloat = (latestShort.shortInterest / latestShort.sharesOutstanding) * 100;
     }
-    // Fallback: use shortRatioTTM from Finnhub metrics (days-to-cover as proxy)
     if (shortFloat == null && m.shortRatioTTM != null && m.shortRatioTTM > 0) {
-      shortFloat = Math.min(m.shortRatioTTM * 2, 30); // rough proxy: ratio*2 ≈ float %
+      shortFloat = Math.min(m.shortRatioTTM * 2, 30);
     }
 
-    // ── Insider Ownership % — from existing metrics (same field browser uses) ──
-    // Finnhub returns insiderOwnershipPercentage as a % value (e.g. 0.28 for 0.28%)
-    const insiderOwnership = m.insiderOwnershipPercentage ?? null;
+    // ── Insider Ownership % — Finviz first, Finnhub as fallback ──
+    const insiderOwnership = finviz?.insiderOwn ?? m.insiderOwnershipPercentage ?? null;
 
     // ── Compute MA200 and RSI from Yahoo 5Y weekly closes ────────
     // 200 trading days ÷ 5 days/week = 40 weeks → use last 40 weekly closes
@@ -593,7 +592,7 @@ async function scoreStock(symbol, env) {
         shortFloat:       scoreShortFloat(shortFloat),
         rsiScore:         scoreRSI(rsi),
         debt:             scoreDebt(debtEquityFinal, sectorKey),
-        institutional:    null,
+        institutional:    finviz?.instOwn ?? null,
         analysts:         null,
         momentum:         scoreMomentum(changePct, price, high52w, low52w),
         technical:        null,
@@ -1274,6 +1273,35 @@ async function handleYahooQuotePage(url, origin) {
   } catch (e) {
     return err(e.message);
   }
+}
+
+// ── Internal Finviz fetch (used by scoreStock) ────────────────────────────────
+async function fetchFinvizData(symbol) {
+  try {
+    const url = `https://finviz.com/quote.ashx?t=${encodeURIComponent(symbol)}&p=d`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://finviz.com/',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const data = {};
+    for (const [, label, value] of html.matchAll(
+      /<td[^>]*class="[^"]*snapshot-td2-cp[^"]*"[^>]*>\s*([^<]+?)\s*<\/td>\s*<td[^>]*class="[^"]*snapshot-td2[^"]*"[^>]*><b>\s*([^<]*?)\s*<\/b>/g
+    )) { data[label.trim()] = value.trim(); }
+
+    const pct = (s) => (s && s !== '-') ? parseFloat(s) : null;
+    return {
+      shortFloat:   pct(data['Short Float']),   // e.g. "2.45" → 2.45%
+      insiderOwn:   pct(data['Insider Own']),    // e.g. "0.28" → 0.28%
+      instOwn:      pct(data['Inst Own']),       // e.g. "72.5" → 72.5%
+    };
+  } catch { return null; }
 }
 
 async function handleFinvizPage(url, origin) {
