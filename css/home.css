@@ -1469,10 +1469,20 @@
 }
 
 /* ── Top Picks Toggle ────────────────────────────────────────────────────── */
+.tp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.tp-header .card-title {
+  margin-bottom: 0;
+}
+
 .tp-toggle {
   display: flex;
   gap: 4px;
-  margin-bottom: 10px;
 }
 
 .tp-toggle-btn {
