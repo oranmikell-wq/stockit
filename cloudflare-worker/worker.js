@@ -157,12 +157,29 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
 
+    // ── /scan-chunk?offset=N&secret=XXX — self-chaining scanner ────────────────
+    if (url.pathname === '/scan-chunk') {
+      const runSecret = env.SCAN_SECRET || '';
+      if (url.searchParams.get('secret') !== runSecret || !runSecret) {
+        return new Response('Unauthorized', { status: 401 });
+      }
+      const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
+      ctx.waitUntil(runScanChunk(offset, env, runSecret));
+      return new Response(JSON.stringify({ status: 'chunk started', offset }), {
+        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      });
+    }
+
     // ── /top-picks endpoint ──────────────────────────────────────────────────
     if (url.pathname === '/top-picks') {
-      // Manual trigger for testing: /top-picks?run=1&secret=YOUR_SECRET
+      // Manual trigger: /top-picks?run=1&secret=YOUR_SECRET
       const runSecret = env.SCAN_SECRET || '';
       if (url.searchParams.get('run') === '1' && url.searchParams.get('secret') === runSecret && runSecret) {
-        ctx.waitUntil(runDailyScan(env));
+        // Reset scores and kick off chained scan from offset 0
+        ctx.waitUntil((async () => {
+          await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify({}), { expirationTtl: 60 * 60 * 30 });
+          await fetch(`https://bulltherapy-proxy.oranmikell.workers.dev/scan-chunk?offset=0&secret=${runSecret}`);
+        })());
         return new Response(JSON.stringify({ status: 'scan started' }), {
           headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
         });
@@ -348,67 +365,78 @@ export default {
 
   // Cron Trigger — runs 4x per day at 03:00, 09:00, 15:00, 21:00 UTC
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runDailyScan(env));
+    const runSecret = env.SCAN_SECRET || '';
+    ctx.waitUntil((async () => {
+      await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify({}), { expirationTtl: 60 * 60 * 30 });
+      await fetch(`https://bulltherapy-proxy.oranmikell.workers.dev/scan-chunk?offset=0&secret=${runSecret}`);
+    })());
   },
 };
 
-// ── Daily S&P 500 Scanner ─────────────────────────────────────────────────────
-async function runDailyScan(env) {
-  console.log('[Scanner] Starting daily S&P 500 scan...');
-  const results = [];
-  // Finnhub free plan: 60 req/min.
-  // Each stock makes 4 Finnhub calls (metrics + earnings + shortInterest + profile).
-  // insiderOwnershipPercentage comes from existing metrics — no extra call needed.
-  // With batch=2 stocks in parallel and 8000ms pause after each batch:
-  //   2 × 4 = 8 Finnhub calls per ~9s → ~53 calls/min (safe under 60 limit)
-  //   Total scan time: ~250 batches × 9s ≈ 37 minutes (within 1-hour cron window)
-  const BATCH = 2;
-  const BATCH_DELAY = 8000;
+// ── Self-chaining chunk scanner ───────────────────────────────────────────────
+// Each invocation scores CHUNK_SIZE stocks, saves to KV, then triggers the next.
+// Free plan: each invocation gets its own 30-second window → 500 stocks in ~100 hops.
+// Finnhub rate: 3 calls/stock × 2 stocks/batch ÷ 7s = 51 req/min (safe under 60).
+const CHUNK_SIZE  = 5;   // stocks scored per invocation
+const CHUNK_BATCH = 2;   // parallel stocks within a chunk
+const CHUNK_DELAY = 3000; // ms between batches (Finnhub rate control)
 
-  for (let i = 0; i < SP500_UNIVERSE.length; i += BATCH) {
-    const batch = SP500_UNIVERSE.slice(i, i + BATCH);
+async function runScanChunk(offset, env, runSecret) {
+  const chunk = SP500_UNIVERSE.slice(offset, offset + CHUNK_SIZE);
+  if (!chunk.length) return;
+
+  const now = new Date().toISOString();
+  const results = [];
+
+  for (let i = 0; i < chunk.length; i += CHUNK_BATCH) {
+    const batch = chunk.slice(i, i + CHUNK_BATCH);
     const settled = await Promise.allSettled(batch.map(sym => scoreStock(sym, env)));
     for (const r of settled) {
       if (r.status === 'fulfilled' && r.value) results.push(r.value);
     }
-    if (i + BATCH < SP500_UNIVERSE.length) await sleep(BATCH_DELAY);
+    if (i + CHUNK_BATCH < chunk.length) await sleep(CHUNK_DELAY);
   }
 
-  // Sort by score, take top 20
-  results.sort((a, b) => b.score - a.score);
-  const top20 = results.slice(0, 20);
+  // Merge into running KV scores map
+  const allScores = (await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' })) ?? {};
+  for (const r of results) allScores[r.symbol] = { ...r, scannedAt: now };
+  await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(allScores), { expirationTtl: 60 * 60 * 30 });
 
-  const payload = {
-    picks: top20,
-    scannedAt: new Date().toISOString(),
-    universe: SP500_UNIVERSE.length,
-    scored: results.length,
-  };
+  const nextOffset = offset + CHUNK_SIZE;
 
-  // Build flat map of all scores for /score?symbol= endpoint
-  const allScores = {};
-  for (const r of results) {
-    allScores[r.symbol] = { ...r, scannedAt: payload.scannedAt };
+  if (nextOffset >= SP500_UNIVERSE.length) {
+    // All stocks scanned — build top picks
+    const allResults = Object.values(allScores).filter(r => r.score != null);
+    allResults.sort((a, b) => b.score - a.score);
+    const top20 = allResults.slice(0, 20);
+    const payload = {
+      picks: top20,
+      scannedAt: now,
+      universe: SP500_UNIVERSE.length,
+      scored: allResults.length,
+    };
+    await env.TOP_PICKS_KV.put(KV_KEY, JSON.stringify(payload), { expirationTtl: 60 * 60 * 30 });
+    console.log(`[Scanner] Complete. ${allResults.length} stocks. Top: ${top20[0]?.symbol} (${top20[0]?.score})`);
+  } else {
+    // Trigger next chunk
+    console.log(`[Scanner] Chunk ${offset}–${offset + CHUNK_SIZE - 1} done (${results.length} scored). Next: ${nextOffset}`);
+    try {
+      await fetch(
+        `https://bulltherapy-proxy.oranmikell.workers.dev/scan-chunk?offset=${nextOffset}&secret=${runSecret}`,
+        { signal: AbortSignal.timeout(5000) }
+      );
+    } catch {}
   }
-
-  await Promise.all([
-    env.TOP_PICKS_KV.put(KV_KEY, JSON.stringify(payload), { expirationTtl: 60 * 60 * 30 }),
-    env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(allScores), { expirationTtl: 60 * 60 * 30 }),
-  ]);
-
-  console.log(`[Scanner] Done. Scored ${results.length}/${SP500_UNIVERSE.length} stocks. Top: ${top20[0]?.symbol} (${top20[0]?.score})`);
 }
 
 // ── Score a single stock — uses exact scoring.js formula ─────────────────────
 async function scoreStock(symbol, env) {
   try {
-    const [chart, metrics, earningsArr, shortData, profile, finviz, insiderTxn, fmpMetrics] = await Promise.all([
+    const [chart, metrics, earningsArr, profile, insiderTxn, fmpMetrics] = await Promise.all([
       fetchChart(symbol),
       fetchFinnhubMetrics(symbol, env.FINNHUB_KEY),
       fetchFinnhubEarnings(symbol, env.FINNHUB_KEY),
-      fetchFinnhubShortInterest(symbol, env.FINNHUB_KEY),
       fetchFinnhubProfile(symbol, env.FINNHUB_KEY),
-      fetchFinvizData(symbol),
       fetchInsiderTransactions(symbol),
       fetchFMPKeyMetrics(symbol, env.FMP_KEY),
     ]);
@@ -443,18 +471,14 @@ async function scoreStock(symbol, env) {
     const pfcf = m.pfcfShareTTM ?? null;
     const syntheticFCF = (pfcf != null && pfcf > 0 && marketCap != null) ? marketCap / pfcf : null;
 
-    // ── Short Float % — Finviz first (blocked), Finnhub as fallback ──────────
-    const latestShort = shortData?.data?.[shortData.data.length - 1];
-    let shortFloat = finviz?.shortFloat ?? null;
-    if (shortFloat == null && latestShort?.shortInterest && latestShort?.sharesOutstanding && latestShort.sharesOutstanding > 0) {
-      shortFloat = (latestShort.shortInterest / latestShort.sharesOutstanding) * 100;
-    }
-    if (shortFloat == null && m.shortRatioTTM != null && m.shortRatioTTM > 0) {
+    // ── Short Float % — Finnhub shortRatioTTM as rough proxy ────────────────
+    let shortFloat = null;
+    if (m.shortRatioTTM != null && m.shortRatioTTM > 0) {
       shortFloat = Math.min(m.shortRatioTTM * 2, 30);
     }
 
-    // ── Insider Ownership % — Finviz first, Finnhub as fallback ──
-    const insiderOwnership = finviz?.insiderOwn ?? m.insiderOwnershipPercentage ?? null;
+    // ── Insider Ownership % — Finnhub fallback ────────────────────────────────
+    const insiderOwnership = m.insiderOwnershipPercentage ?? null;
 
     // ── Compute MA200 and RSI from Yahoo 5Y weekly closes ────────
     // 200 trading days ÷ 5 days/week = 40 weeks → use last 40 weekly closes
@@ -600,7 +624,7 @@ async function scoreStock(symbol, env) {
         macdScore:        scoreMACD(macdVal, price),
         rsiScore:         scoreRSI(rsi),
         debt:             scoreDebt(debtEquityFinal, sectorKey),
-        institutional:    finviz?.instOwn ?? null,
+        institutional:    null,
         analysts:         null,
         momentum:         scoreMomentum(changePct, price, high52w, low52w),
         technical:        null,
