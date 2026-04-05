@@ -7,9 +7,21 @@ import { calcScore } from '../utils/scoring.js';
 import { fetchAllData, fetchHistory } from '../services/StockService.js';
 import { isInWatchlist, addToWatchlist, removeFromWatchlist } from './Watchlist.js';
 
-const WORKER_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/top-picks';
-const PICKS_KEY  = 'bon-toppicks-v10';       // v10: full indicators in Worker
-const PICKS_TTL  = 4 * 60 * 60 * 1000;      // 4 hours
+const WORKER_URL       = 'https://bulltherapy-proxy.oranmikell.workers.dev/top-picks';
+const WORKER_SCORE_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/score';
+const PICKS_KEY  = 'bon-toppicks-v10';
+const PICKS_TTL  = 4 * 60 * 60 * 1000;
+
+async function fetchWorkerScore(symbol) {
+  try {
+    const res = await fetch(`${WORKER_SCORE_URL}?symbol=${encodeURIComponent(symbol)}`, {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.notFound ? null : json;
+  } catch { return null; }
+}
 
 const FALLBACK_UNIVERSE = [
   'AAPL','MSFT','NVDA','GOOGL','META',
@@ -83,13 +95,15 @@ async function loadMag7Picks() {
   const results = [];
   await Promise.allSettled(MAG7.map(async sym => {
     try {
-      const { data } = await fetchAllData(sym, true);
-      const cached   = getCachedScore(sym);
+      const [{ data }, workerScore] = await Promise.all([
+        fetchAllData(sym, true),
+        fetchWorkerScore(sym),
+      ]);
       results.push({
         symbol:    sym,
         name:      data?.name ?? sym,
-        score:     cached?.score ?? null,
-        rating:    cached?.rating ?? 'wait',
+        score:     workerScore?.score ?? null,
+        rating:    workerScore?.rating ?? 'wait',
         price:     data?.price    ?? null,
         changePct: data?.changePct ?? null,
         ath:       data?.high52w  ?? null,
@@ -98,7 +112,6 @@ async function loadMag7Picks() {
       });
     } catch {}
   }));
-  // Keep original MAG7 order
   _mag7Cache = MAG7.map(sym => results.find(r => r.symbol === sym)).filter(Boolean);
   return _mag7Cache;
 }
@@ -118,13 +131,15 @@ async function loadWatchlistPicks() {
   const results = [];
   await Promise.allSettled(list.map(async item => {
     try {
-      const { data } = await fetchAllData(item.symbol, true);
-      const cached   = getCachedScore(item.symbol);
+      const [{ data }, workerScore] = await Promise.all([
+        fetchAllData(item.symbol, true),
+        fetchWorkerScore(item.symbol),
+      ]);
       results.push({
         symbol:    item.symbol,
         name:      data?.name ?? item.name ?? item.symbol,
-        score:     cached?.score ?? null,
-        rating:    cached?.rating ?? item.rating ?? 'wait',
+        score:     workerScore?.score ?? null,
+        rating:    workerScore?.rating ?? item.rating ?? 'wait',
         price:     data?.price    ?? null,
         changePct: data?.changePct ?? null,
         ath:       data?.high52w  ?? null,

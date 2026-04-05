@@ -24,7 +24,7 @@ import { renderAnalysisTables } from './components/AnalysisTables.js';
 import { renderNews, renderAIInsight } from './components/NewsRenderer.js';
 import { loadFearGreed, loadCryptoFearGreed } from './components/FearGreedGauge.js?v=2';
 import { loadTrending, renderTrendingList }   from './components/TrendingList.js';
-import { renderTopPicks } from './components/TopPicks.js?v=6';
+import { renderTopPicks } from './components/TopPicks.js?v=7';
 import { loadAAII }      from './components/AAIISentiment.js';
 import { loadMacroData, loadCryptoPrices, loadUpcomingEvents } from './components/MacroCrypto.js?v=7';
 import { renderMarketStatus, loadDXY, loadCommodities, loadSectorPerformance, loadMovers } from './components/MarketMovers.js?v=1';
