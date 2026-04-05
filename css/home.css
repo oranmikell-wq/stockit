@@ -416,11 +416,13 @@
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 10px 10px;
+  padding: 10px 12px;
   flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   box-shadow: var(--shadow-sm);
   min-width: 0;
   overflow: hidden;
@@ -432,6 +434,15 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.market-values {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
 }
 
 .market-price {
@@ -439,13 +450,12 @@
   font-weight: 700;
   color: var(--text);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .market-change {
   font-size: 11px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .market-change.positive { color: var(--green); }
@@ -1043,19 +1053,18 @@
     box-shadow: var(--shadow-sm);
   }
   .market-card {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
     padding: 8px 10px;
     border-left: 3px solid transparent;
     border-radius: 8px;
     box-shadow: none;
     background: var(--card-bg);
-    gap: 1px;
+    gap: 8px;
   }
   .market-card:has(.market-change.negative) { border-left-color: var(--red); }
   .market-card:has(.market-change.positive) { border-left-color: var(--green); }
-  .market-card-left { display: contents; }
-  .market-name   { font-size: 9px; }
+  .market-name   { font-size: 10px; }
   .market-price  { font-size: 13px; }
   .market-change { font-size: 11px; }
 

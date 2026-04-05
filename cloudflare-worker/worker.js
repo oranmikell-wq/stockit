@@ -6,7 +6,7 @@
  *   GET /top-picks          → Returns cached daily scan results from KV
  *   GET /top-picks?run=1&secret=XXX → Trigger manual scan (for testing)
  *
- * Scheduled: runs daily at 03:00 UTC via Cron Trigger
+ * Scheduled: runs 4x per day at 03:00, 09:00, 15:00, 21:00 UTC via Cron Trigger
  */
 
 // ── S&P 500 Universe (full ~500 stocks) ──────────────────────────────────────
@@ -143,8 +143,8 @@ const ALLOWED_HOSTS = [
 ];
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const KV_KEY        = 'top-picks-v8';   // v8: includes family scores
-const KV_SCORES_KEY = 'all-scores-v1';  // full score map for all scanned stocks
+const KV_KEY        = 'top-picks-v9';   // v9: full fundamentals + criteria scores
+const KV_SCORES_KEY = 'all-scores-v2';  // v2: complete data per stock for browser fast path
 
 // ── Main export ───────────────────────────────────────────────────────────────
 export default {
@@ -202,7 +202,78 @@ export default {
       try {
         const allScores = await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' });
         const entry = allScores?.[sym] ?? null;
-        return new Response(JSON.stringify(entry ?? { notFound: true }), {
+        if (entry) {
+          return new Response(JSON.stringify(entry), {
+            headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' },
+          });
+        }
+        // Not in KV — score on-demand and cache for 6 hours
+        const computed = await scoreStock(sym, env);
+        if (!computed) {
+          return new Response(JSON.stringify({ notFound: true }), {
+            headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+          });
+        }
+        const result = { ...computed, scannedAt: new Date().toISOString() };
+        // Cache it: update allScores map
+        ctx.waitUntil((async () => {
+          try {
+            const scores = (await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' })) ?? {};
+            scores[sym] = result;
+            await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(scores), { expirationTtl: 60 * 60 * 6 });
+          } catch {}
+        })());
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // ── /scores?symbols=AAPL,MSFT,TSLA batch endpoint ───────────────────────
+    if (url.pathname === '/scores') {
+      const raw = url.searchParams.get('symbols') || '';
+      const syms = raw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 50);
+      if (!syms.length) {
+        return new Response(JSON.stringify({ error: 'Missing symbols' }), {
+          status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+      try {
+        const allScores = await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' }) ?? {};
+        const result = {};
+        const missing = [];
+        for (const sym of syms) {
+          if (allScores[sym]) result[sym] = allScores[sym];
+          else missing.push(sym);
+        }
+        // Score missing symbols on-demand (in parallel, max 10)
+        if (missing.length) {
+          const toScore = missing.slice(0, 10);
+          const settled = await Promise.allSettled(toScore.map(sym => scoreStock(sym, env)));
+          const newEntries = {};
+          settled.forEach((r, i) => {
+            if (r.status === 'fulfilled' && r.value) {
+              const entry = { ...r.value, scannedAt: new Date().toISOString() };
+              result[toScore[i]] = entry;
+              newEntries[toScore[i]] = entry;
+            }
+          });
+          // Persist new entries to KV in background
+          if (Object.keys(newEntries).length) {
+            ctx.waitUntil((async () => {
+              try {
+                const scores = (await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' })) ?? {};
+                Object.assign(scores, newEntries);
+                await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(scores), { expirationTtl: 60 * 60 * 6 });
+              } catch {}
+            })());
+          }
+        }
+        return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' },
         });
       } catch (e) {
@@ -275,7 +346,7 @@ export default {
     }
   },
 
-  // Cron Trigger — runs daily at 03:00 UTC
+  // Cron Trigger — runs 4x per day at 03:00, 09:00, 15:00, 21:00 UTC
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runDailyScan(env));
   },
@@ -317,12 +388,7 @@ async function runDailyScan(env) {
   // Build flat map of all scores for /score?symbol= endpoint
   const allScores = {};
   for (const r of results) {
-    allScores[r.symbol] = {
-      score:    r.score,
-      rating:   r.rating,
-      families: r.families,
-      scannedAt: payload.scannedAt,
-    };
+    allScores[r.symbol] = { ...r, scannedAt: payload.scannedAt };
   }
 
   await Promise.all([
@@ -450,17 +516,91 @@ async function scoreStock(symbol, env) {
     const rating = score >= 66 ? 'buy' : score >= 41 ? 'wait' : 'sell';
 
     return {
+      // Identity + score
       symbol, name, score, rating,
+
+      // Live price (from chart)
       price, changePct,
-      high52: high52w,
+      high52w,
+      low52w: chart?.low52 ?? null,
       ath: chart?.ath ?? null,
-      marketCap: marketCap,
       aboveMA200,
+
+      // Market data
+      marketCap,
+
+      // Fundamentals from Finnhub metrics
+      pe:              m.peTTM ?? null,
+      pb:              m.pbAnnual ?? null,
+      ps:              m.psAnnual ?? null,
+      peg:             m.pegNormalizedAnnual ?? null,
+      beta:            m.beta ?? null,
+      dividend:        m.dividendYieldIndicatedAnnual != null ? m.dividendYieldIndicatedAnnual / 100 : null,
+      debtEquity:      debtEquityFinal,
+      roe:             m.roeTTM ?? null,
+      currentRatio:    m.currentRatioAnnual ?? null,
+      operatingMargin: opMarginFinal != null ? opMarginFinal * 100 : null,
+      insiderOwnership,
+      shortFloat,
+      epsGrowth:       epsGrowthFinal != null ? epsGrowthFinal * 100 : null,
+      revenueGrowth:   revenueGrowthFinal != null ? revenueGrowthFinal * 100 : null,
+      epsSurprise,
+      fcf:             fcfFinal,
+
+      // Profile from Finnhub
+      sector:          profile?.finnhubIndustry ?? null,
+      sectorKey,
+      description:     profile?.description ?? null,
+      employees:       profile?.employeeTotal ?? null,
+      website:         profile?.weburl ?? null,
+      country:         profile?.country ?? null,
+      exchange:        profile?.exchange ?? null,
+
+      // Technicals (raw values)
+      rsi,
+      macd:            calcMACD(closes),
+      ma200,
+
+      // Criterion scores (0-100) - precomputed
+      criteria: {
+        eps:              scoreEPS(epsGrowthFinal),
+        revenue:          scoreRevenue(revenueGrowthFinal),
+        epsSurprise:      scoreEPSSurprise(epsSurprise),
+        peg:              scorePEG(m.pegNormalizedAnnual ?? null),
+        fcf:              scoreFCF(fcfFinal, marketCap),
+        peOnly:           scorePEonly(m.peTTM ?? null, sectorKey),
+        multiples:        scoreMultiples(m.peTTM ?? null, m.pbAnnual ?? null, m.psAnnual ?? null, sectorKey),
+        operatingMargin:  scoreOperatingMargin(opMarginFinal, sectorKey),
+        insiderOwnership: scoreInsiderOwnership(insiderOwnership),
+        roe:              scoreROE(m.roeTTM ?? null),
+        currentRatio:     scoreCurrentRatio(m.currentRatioAnnual ?? null),
+        ma200:            scoreMA200Position(price, ma200),
+        distFromHigh:     scoreDistFromHigh(price, high52w),
+        shortFloat:       scoreShortFloat(shortFloat),
+        rsiScore:         scoreRSI(rsi),
+        debt:             scoreDebt(debtEquityFinal, sectorKey),
+        institutional:    null,
+        analysts:         null,
+        momentum:         null,
+        technical:        null,
+        ath:              scoreATH(price, high52w, chart?.ath ?? null),
+        highs:            null,
+      },
+
+      // Family scores
       families: {
         growth:    familyGrowth    != null ? Math.round(familyGrowth)    : null,
         valuation: familyValuation != null ? Math.round(familyValuation) : null,
         quality:   familyQuality   != null ? Math.round(familyQuality)   : null,
         technical: familyTechnical != null ? Math.round(familyTechnical) : null,
+      },
+
+      // Technicals object
+      technicals: {
+        rsi,
+        macd:     calcMACD(closes),
+        athPrice: chart?.ath ?? null,
+        highs:    null,
       },
     };
 
@@ -650,6 +790,34 @@ const SECTOR_PE = {
   materials: [10,15,22,30], default: [12,20,35,55],
 };
 
+const SECTOR_PB = {
+  technology:    [1, 3, 6, 12],
+  financials:    [0.8, 1.2, 2, 3.5],
+  energy:        [1, 1.5, 2.5, 4],
+  healthcare:    [2, 4, 7, 12],
+  real_estate:   [1, 1.5, 2.5, 4],
+  consumer:      [1.5, 3, 5, 8],
+  industrials:   [1.5, 2.5, 4, 7],
+  communication: [1.5, 3, 5, 9],
+  utilities:     [1, 1.5, 2.5, 4],
+  materials:     [1, 2, 3.5, 6],
+  default:       [1, 3, 6, 12],
+};
+
+const SECTOR_PS = {
+  technology:    [2, 5, 10, 20],
+  financials:    [1, 2, 4, 7],
+  energy:        [0.5, 1, 2, 3.5],
+  healthcare:    [1, 3, 6, 12],
+  real_estate:   [3, 6, 10, 16],
+  consumer:      [0.3, 0.8, 1.5, 3],
+  industrials:   [0.5, 1, 2, 3.5],
+  communication: [1, 3, 6, 10],
+  utilities:     [1, 2, 3.5, 5],
+  materials:     [0.5, 1, 2, 3.5],
+  default:       [1, 3, 6, 12],
+};
+
 function getSectorKey(sector) {
   if (!sector) return 'default';
   const s = sector.toLowerCase();
@@ -775,6 +943,48 @@ function scoreRSI(rsi) {
   if (rsi < 30) return 70; if (rsi < 50) return 80;
   if (rsi < 65) return 65; if (rsi < 75) return 35;
   return 15;
+}
+
+function scoreMultiples(pe, pb, ps, sectorKey) {
+  const scores = [];
+  if (pe != null && pe > 0) scores.push(normalizeInverse(pe, SECTOR_PE[sectorKey] || SECTOR_PE.default));
+  if (pb != null && pb > 0) scores.push(normalizeInverse(pb, SECTOR_PB[sectorKey] || SECTOR_PB.default));
+  if (ps != null && ps > 0) scores.push(normalizeInverse(ps, SECTOR_PS[sectorKey] || SECTOR_PS.default));
+  if (!scores.length) return null;
+  return scores.reduce((a, b) => a + b, 0) / scores.length;
+}
+
+function scoreDebt(debtEquity, sectorKey) {
+  if (debtEquity == null) return null;
+  const highDebtSectors = ['financials', 'real_estate', 'utilities'];
+  const max = highDebtSectors.includes(sectorKey) ? 10.0 : 2.0;
+  return Math.max(0, 100 - normalizeLinear(debtEquity, 0, max));
+}
+
+function scoreATH(price, high52w, ath) {
+  if (price == null || high52w == null) return null;
+  const distFrom52w = ((high52w - price) / high52w) * 100;
+  const fromHigh = normalizeInverse(distFrom52w, [0, 10, 30, 50]);
+  if (!ath || ath <= high52w) return fromHigh;
+  const distFromATH = ((ath - price) / ath) * 100;
+  const fromATH = normalizeInverse(distFromATH, [0, 15, 40, 65]);
+  return (fromHigh * 0.6 + fromATH * 0.4);
+}
+
+function calcEMA(closes, period) {
+  const k = 2 / (period + 1);
+  let ema = closes[0];
+  for (let i = 1; i < closes.length; i++) {
+    ema = closes[i] * k + ema * (1 - k);
+  }
+  return ema;
+}
+
+function calcMACD(closes) {
+  if (closes.length < 26) return null;
+  const ema12 = calcEMA(closes, 12);
+  const ema26 = calcEMA(closes, 26);
+  return ema12 - ema26;
 }
 
 function calcSMA(closes, period) {

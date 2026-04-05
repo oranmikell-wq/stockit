@@ -52,6 +52,51 @@ import { navigateTo as _navigateTo, getCurrentPage } from './hooks/useNavigation
 import { getHistory, saveSearchHistory, renderHistory as _renderHistory, removeHistory as _removeHistory } from './hooks/useHistory.js';
 import { formatMarketCap } from './utils/formatters.js';
 
+// ── S&P 500 symbol set — used to gate Worker fast path ──
+const SP500_SET = new Set([
+  'AAPL','MSFT','NVDA','GOOGL','GOOG','META','TSLA','AVGO','ORCL','CRM',
+  'AMD','QCOM','TXN','AMAT','MU','LRCX','KLAC','ADI','SNPS','CDNS',
+  'MRVL','MCHP','NXPI','ON','SWKS','MPWR','TER','KEYS','INTC','ANSS',
+  'FICO','MDB','ZS','HUBS','PLTR','APP','TTD','OKTA',
+  'ADBE','NOW','INTU','FTNT','PANW','CRWD','NET','DDOG','SNOW','ADSK',
+  'WDAY','PAYC','VRSN','GDDY','PTC','CTSH','AKAM','FFIV','GEN','EPAM',
+  'IBM','CSCO','HPQ','HPE','DELL','CDW','WDC','STX','NTAP','GLW',
+  'APH','TEL','FTV','ZBRA','TRMB','LDOS','IT','JNPR','ACN','MANH',
+  'FSLR','ENPH','GNRC',
+  'JPM','BAC','WFC','GS','MS','USB','PNC','TFC','COF','MTB',
+  'RF','FITB','HBAN','KEY','CFG','ZION','FHN','CMA',
+  'BLK','AXP','SCHW','SPGI','MCO','ICE','CME','CBOE','NDAQ','MKTX',
+  'STT','BK','NTRS','TROW','IVZ','BEN','VOYA','RJF','FDS','SEIC','BR',
+  'CB','PGR','MMC','MET','PRU','AFL','ALL','HIG','LNC','UNM',
+  'CINF','WRB','GL','AIG','AMP','EG','AON','WTW','BRO','ERIE','AIZ',
+  'SYF','ALLY','PFG','KKR','APO','CG','FNF','LPLA','ORI',
+  'LLY','JNJ','ABBV','MRK','AMGN','PFE','BMY','GILD','VRTX','REGN',
+  'MRNA','BIIB','ALNY','INCY','NBIX','UTHR','EXAS','OGN',
+  'UNH','TMO','ABT','DHR','ISRG','SYK','BSX','ZTS','MDT','EW',
+  'DXCM','BDX','GEHC','RMD','HOLX','IQV','PODD','RVTY','MTD','A',
+  'BAX','TFX','ALGN','WAT','ILMN','COO','CRL','TECH','SOLV',
+  'XOM','CVX','COP','EOG','SLB','PSX','VLO','MPC','OXY','HAL',
+  'DVN','FANG','HES','APA','MRO','BKR','NOV','CTRA','OVV',
+  'NEE','DUK','SO','AEP','EXC','XEL','WEC','DTE','ED','FE',
+  'EIX','PEG','ETR','ES','AEE','LNT','EVRG','CMS','NI','PPL',
+  'NRG','AES','PNW',
+  'AMZN','TSLA','HD','MCD','NKE','SBUX','TGT','LOW','TJX','BKNG',
+  'MAR','HLT','YUM','CMG','DHI','LEN','PHM','NVR',
+  'COST','WMT','KR','SYY','MKC','GIS','CPB','CAG','HRL','SJM',
+  'TSN','HSY','MDLZ','KHC','PEP','KO','STZ','BUD','TAP',
+  'PG','CL','COLM','EL','ULTA','BBWI',
+  'LIN','APD','SHW','PPG','ECL','EMN','CF','MOS','FMC','ALB','CE',
+  'AMT','PLD','EQIX','PSA','SPG','O','WPC','DLR','CCI','SBAC',
+  'EQR','AVB','ESS','MAA','UDR','CPT','IRM','VICI','MGM',
+  'CAT','DE','HON','RTX','LMT','NOC','GD','BA','GE','MMM',
+  'EMR','ETN','PH','ROK','FTV','OTIS','CARR','TT','IR','XYL',
+  'WM','RSG','FAST','GWW','EXPD','JBHT','CHRW','XPO','ODFL',
+  'V','MA','PYPL','SQ','FI','FIS','GPN','WEX','FOUR',
+  'NFLX','DIS','CMCSA','PARA','WBD','FOX','FOXA',
+  'T','VZ','TMUS','LUMN','WU',
+  'NVDA','AVGO','QCOM','TXN','AMAT','MU','LRCX','KLAC','ADI','MRVL',
+]);
+
 // ── App State ───────────────────────────────────────────
 let currentStock = null;
 let autoRefreshTimer = null;
@@ -491,6 +536,74 @@ async function loadForex() {
   }
 }
 
+// ── Worker fast-path helpers ────────────────────────────
+function buildDataFromWorker(ws, liveQuote, newsItems) {
+  return {
+    symbol:          ws.symbol,
+    name:            ws.name,
+    sector:          ws.sector,
+    industry:        ws.industry ?? null,
+    description:     ws.description ?? null,
+    employees:       ws.employees ?? null,
+    website:         ws.website ?? null,
+    country:         ws.country ?? null,
+    exchange:        ws.exchange ?? null,
+    currency:        'USD',
+    isTASE:          false,
+    isCrypto:        false,
+    marketState:     'REGULAR',
+    price:           liveQuote?.price ?? ws.price,
+    changePct:       liveQuote?.changePct ?? ws.changePct,
+    change:          null,
+    pe:              ws.pe,
+    pb:              ws.pb,
+    ps:              ws.ps,
+    peg:             ws.peg,
+    beta:            ws.beta,
+    dividend:        ws.dividend,
+    marketCap:       ws.marketCap,
+    high52w:         ws.high52w,
+    low52w:          ws.low52w,
+    debtEquity:      ws.debtEquity,
+    roe:             ws.roe,
+    currentRatio:    ws.currentRatio,
+    fcf:             ws.fcf,
+    operatingMargin: ws.operatingMargin,
+    insiderOwnership: ws.insiderOwnership,
+    shortFloat:      ws.shortFloat,
+    epsGrowth:       ws.epsGrowth,
+    revenueGrowth:   ws.revenueGrowth,
+    epsSurprise:     ws.epsSurprise,
+    analystScore:    ws.analystScore ?? null,
+    analystMean:     ws.analystMean ?? null,
+    analystCount:    ws.analystCount ?? null,
+    targetMean:      ws.targetMean ?? null,
+    targetHigh:      ws.targetHigh ?? null,
+    targetLow:       ws.targetLow ?? null,
+    earningsDate:    ws.earningsDate ? new Date(ws.earningsDate) : null,
+    instPct:         ws.instPct ?? null,
+    newsItems:       newsItems ?? [],
+  };
+}
+
+function buildScoredFromWorker(ws) {
+  return {
+    score:    ws.score,
+    rating:   ws.rating,
+    isPartial: false,
+    criteria: ws.criteria ?? {},
+    families: ws.families ?? {},
+    technicals: {
+      rsi:      ws.rsi ?? null,
+      macd:     ws.macd ?? null,
+      athPrice: ws.ath ?? null,
+      highs:    ws.technicals?.highs ?? null,
+    },
+    sectorKey: ws.sectorKey ?? 'default',
+    _ma200:    ws.ma200 ?? null,
+  };
+}
+
 // ── Results ────────────────────────────────────────────
 async function loadResults(symbol, isRefresh = false) {
   activeLoadSymbol = symbol;
@@ -506,109 +619,192 @@ async function loadResults(symbol, isRefresh = false) {
   clearInterval(autoRefreshTimer);
 
   try {
-    // Run quote, 5Y history, and full indicator data all in parallel
-    const [
-      { data, offline, cacheDate },
-      h5,
-      fullStockData,
-    ] = await Promise.all([
-      fetchAllData(symbol),
-      fetchHistory(symbol, '5Y').catch(() => []),
-      fetchStockFullData(symbol).catch(() => null),
-    ]);
-
-    if (!data) throw new Error(t('stockNotFound'));
-
-    // If the user searched a different stock while this was loading, discard
-    if (!isCurrent()) return;
-
-    // Try Worker score first (single source of truth for S&P 500 stocks)
+    // Check Worker first for S&P 500 stocks (fast, cached)
     const workerScore = await fetchWorkerScore(symbol);
-    const scored = calcScore(data, h5, fullStockData?.indicators ?? {});
+    const hasFullWorkerData = workerScore?.criteria != null && workerScore?.score != null;
 
-    // If Worker has a score, use it as the authoritative score + families
-    if (workerScore?.score != null) {
-      scored.score  = workerScore.score;
-      scored.rating = workerScore.rating;
-      if (workerScore.families) {
-        scored.families = workerScore.families;
+    if (SP500_SET.has(symbol.toUpperCase()) && hasFullWorkerData) {
+      // ── FAST PATH: Worker has all data ──────────────────────────────────────
+      const [liveQuoteResult, fullStockData] = await Promise.all([
+        fetchAllData(symbol).catch(() => ({ data: null, offline: false, cacheDate: null })),
+        fetchStockFullData(symbol).catch(() => null),
+      ]);
+
+      if (!isCurrent()) return;
+
+      const liveData  = liveQuoteResult?.data;
+      const liveQuote = liveData ? { price: liveData.price, changePct: liveData.changePct } : null;
+      const newsItems = liveData?.newsItems ?? [];
+
+      const data   = buildDataFromWorker(workerScore, liveQuote, newsItems);
+      const scored = buildScoredFromWorker(workerScore);
+
+      currentStock = { ...data, ...scored };
+
+      renderResults(data, scored);
+
+      // Patch highs1y from fullStockData if available
+      const highs1yEl = document.getElementById('info-highs1y');
+      if (highs1yEl) {
+        const closes1y = (fullStockData?.history ?? []).map(h => h.value).filter(v => v != null && v > 0);
+        highs1yEl.textContent = closes1y.length >= 5 ? countNewHighs(closes1y) : t('noData');
       }
+
+      saveSearchHistory(symbol, data.name, renderHistory);
+
+      document.getElementById('results-loading').style.display = 'none';
+      const resultsContent = document.getElementById('results-content');
+      resultsContent.classList.remove('hidden');
+
+      // ── Last updated timestamp ──
+      const updatedBar  = document.getElementById('last-updated-bar');
+      const updatedTime = document.getElementById('last-updated-time');
+      if (updatedBar && updatedTime) {
+        const now = new Date();
+        updatedTime.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          + '  ·  ' + now.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+        updatedBar.classList.remove('hidden');
+      }
+      // Trigger staggered fade-in-up animations on all sections
+      resultsContent.classList.remove('did-animate');
+      void resultsContent.offsetWidth; // force reflow to restart animations
+      resultsContent.classList.add('did-animate');
+
+      // ── SummaryGauge — 4-family weighted score ──
+      const summaryContainer = document.getElementById('summary-gauge-container');
+      if (summaryContainer) {
+        lastSummaryScored = scored;
+        lastFullStockData = fullStockData;
+        renderSummaryGauge(summaryContainer, scored);
+      }
+
+      loadChart(symbol, '1M');
+      updateWatchlistBtn(symbol);
+
+      // Analysis Tables (Fundamental + Technical)
+      const fundamentalEl = document.getElementById('analysis-fundamental-section');
+      const technicalEl   = document.getElementById('analysis-technical-section');
+      if (fundamentalEl || technicalEl) {
+        renderAnalysisTables(
+          fundamentalEl,
+          technicalEl,
+          scored,
+          data,
+          fullStockData?.history ?? [],
+          fullStockData?.indicators ?? null,
+          isCurrent,
+        );
+        initInfoButtons(document.getElementById('page-results'));
+      }
+
+      // AI Insight — runs async, silently hides itself on error
+      if (isCurrent()) renderAIInsight(newsItems, symbol, isCurrent);
+
+      autoRefreshTimer = setInterval(() => loadResults(symbol, true), 15 * 60 * 1000);
+
+    } else {
+      // ── FALLBACK PATH: non-S&P500 or Worker data not ready ──────────────────
+      const [
+        { data, offline, cacheDate },
+        h5,
+        fullStockData,
+      ] = await Promise.all([
+        fetchAllData(symbol),
+        fetchHistory(symbol, '5Y').catch(() => []),
+        fetchStockFullData(symbol).catch(() => null),
+      ]);
+
+      if (!data) throw new Error(t('stockNotFound'));
+
+      // If the user searched a different stock while this was loading, discard
+      if (!isCurrent()) return;
+
+      const scored = calcScore(data, h5, fullStockData?.indicators ?? {});
+
+      // If Worker has a score (even partial), use it as the authoritative score + families
+      if (workerScore?.score != null) {
+        scored.score  = workerScore.score;
+        scored.rating = workerScore.rating;
+        if (workerScore.families) {
+          scored.families = workerScore.families;
+        }
+      }
+
+      currentStock = { ...data, ...scored };
+
+      if (offline && cacheDate) {
+        document.getElementById('offline-banner').classList.remove('hidden');
+        document.getElementById('offline-date').textContent = cacheDate.toLocaleString();
+        document.getElementById('last-updated-bar').classList.add('hidden');
+      }
+
+      renderResults(data, scored);
+
+      // Patch highs1y with rolling 52-week high count from 1Y history
+      const highs1yEl = document.getElementById('info-highs1y');
+      if (highs1yEl) {
+        const closes1y = (fullStockData?.history ?? []).map(h => h.value).filter(v => v != null && v > 0);
+        highs1yEl.textContent = closes1y.length >= 5 ? countNewHighs(closes1y) : (scored.technicals?.highs?.y1 ?? t('noData'));
+      }
+
+      // Patch beta from calculated indicators if Yahoo didn't provide it
+      if (fullStockData?.indicators?.beta != null && !data.beta) {
+        const bEl = document.getElementById('info-beta');
+        if (bEl) bEl.textContent = fullStockData.indicators.beta.toFixed(2);
+      }
+
+      saveSearchHistory(symbol, data.name, renderHistory);
+
+      document.getElementById('results-loading').style.display = 'none';
+      const resultsContent = document.getElementById('results-content');
+      resultsContent.classList.remove('hidden');
+
+      // ── Last updated timestamp ──
+      const updatedBar  = document.getElementById('last-updated-bar');
+      const updatedTime = document.getElementById('last-updated-time');
+      if (updatedBar && updatedTime) {
+        const now = new Date();
+        updatedTime.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          + '  ·  ' + now.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+        updatedBar.classList.remove('hidden');
+      }
+      // Trigger staggered fade-in-up animations on all sections
+      resultsContent.classList.remove('did-animate');
+      void resultsContent.offsetWidth; // force reflow to restart animations
+      resultsContent.classList.add('did-animate');
+
+      // ── SummaryGauge — 4-family weighted score ──
+      const summaryContainer = document.getElementById('summary-gauge-container');
+      if (summaryContainer) {
+        lastSummaryScored = scored;   // use the 4-family calcScore result
+        lastFullStockData = fullStockData;
+        renderSummaryGauge(summaryContainer, scored);
+      }
+
+      loadChart(symbol, '1M');
+      updateWatchlistBtn(symbol);
+
+      // Analysis Tables (Fundamental + Technical) — async, fills SPY row after initial render
+      const fundamentalEl = document.getElementById('analysis-fundamental-section');
+      const technicalEl   = document.getElementById('analysis-technical-section');
+      if (fundamentalEl || technicalEl) {
+        renderAnalysisTables(
+          fundamentalEl,
+          technicalEl,
+          scored,
+          data,
+          fullStockData?.history ?? [],
+          fullStockData?.indicators ?? null,
+          isCurrent,
+        );
+        initInfoButtons(document.getElementById('page-results'));
+      }
+
+      // AI Insight — runs async, silently hides itself on error
+      if (isCurrent()) renderAIInsight(data.newsItems, symbol, isCurrent);
+
+      autoRefreshTimer = setInterval(() => loadResults(symbol, true), 15 * 60 * 1000);
     }
-
-    currentStock = { ...data, ...scored };
-
-    if (offline && cacheDate) {
-      document.getElementById('offline-banner').classList.remove('hidden');
-      document.getElementById('offline-date').textContent = cacheDate.toLocaleString();
-      document.getElementById('last-updated-bar').classList.add('hidden');
-    }
-
-    renderResults(data, scored);
-
-    // Patch highs1y with rolling 52-week high count from 1Y history
-    const highs1yEl = document.getElementById('info-highs1y');
-    if (highs1yEl) {
-      const closes1y = (fullStockData?.history ?? []).map(h => h.value).filter(v => v != null && v > 0);
-      highs1yEl.textContent = closes1y.length >= 5 ? countNewHighs(closes1y) : (scored.technicals?.highs?.y1 ?? t('noData'));
-    }
-
-    // Patch beta from calculated indicators if Yahoo didn't provide it
-    if (fullStockData?.indicators?.beta != null && !data.beta) {
-      const bEl = document.getElementById('info-beta');
-      if (bEl) bEl.textContent = fullStockData.indicators.beta.toFixed(2);
-    }
-
-    saveSearchHistory(symbol, data.name, renderHistory);
-
-    document.getElementById('results-loading').style.display = 'none';
-    const resultsContent = document.getElementById('results-content');
-    resultsContent.classList.remove('hidden');
-
-    // ── Last updated timestamp ──
-    const updatedBar  = document.getElementById('last-updated-bar');
-    const updatedTime = document.getElementById('last-updated-time');
-    if (updatedBar && updatedTime) {
-      const now = new Date();
-      updatedTime.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        + '  ·  ' + now.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
-      updatedBar.classList.remove('hidden');
-    }
-    // Trigger staggered fade-in-up animations on all sections
-    resultsContent.classList.remove('did-animate');
-    void resultsContent.offsetWidth; // force reflow to restart animations
-    resultsContent.classList.add('did-animate');
-
-    // ── SummaryGauge — 4-family weighted score ──
-    const summaryContainer = document.getElementById('summary-gauge-container');
-    if (summaryContainer) {
-      lastSummaryScored = scored;   // use the 4-family calcScore result
-      lastFullStockData = fullStockData;
-      renderSummaryGauge(summaryContainer, scored);
-    }
-
-    loadChart(symbol, '1M');
-    updateWatchlistBtn(symbol);
-
-    // Analysis Tables (Fundamental + Technical) — async, fills SPY row after initial render
-    const fundamentalEl = document.getElementById('analysis-fundamental-section');
-    const technicalEl   = document.getElementById('analysis-technical-section');
-    if (fundamentalEl || technicalEl) {
-      renderAnalysisTables(
-        fundamentalEl,
-        technicalEl,
-        scored,
-        data,
-        fullStockData?.history ?? [],
-        fullStockData?.indicators ?? null,
-        isCurrent,
-      );
-      initInfoButtons(document.getElementById('page-results'));
-    }
-
-    // AI Insight — runs async, silently hides itself on error
-    if (isCurrent()) renderAIInsight(data.newsItems, symbol, isCurrent);
-
-    autoRefreshTimer = setInterval(() => loadResults(symbol, true), 15 * 60 * 1000);
 
   } catch (e) {
     document.getElementById('results-loading').style.display = 'none';

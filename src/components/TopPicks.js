@@ -7,8 +7,9 @@ import { calcScore } from '../utils/scoring.js';
 import { fetchAllData, fetchHistory } from '../services/StockService.js';
 import { isInWatchlist, addToWatchlist, removeFromWatchlist } from './Watchlist.js';
 
-const WORKER_URL       = 'https://bulltherapy-proxy.oranmikell.workers.dev/top-picks';
-const WORKER_SCORE_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/score';
+const WORKER_URL        = 'https://bulltherapy-proxy.oranmikell.workers.dev/top-picks';
+const WORKER_SCORE_URL  = 'https://bulltherapy-proxy.oranmikell.workers.dev/score';
+const WORKER_SCORES_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/scores';
 const PICKS_KEY  = 'bon-toppicks-v10';
 const PICKS_TTL  = 4 * 60 * 60 * 1000;
 
@@ -21,6 +22,16 @@ async function fetchWorkerScore(symbol) {
     const json = await res.json();
     return json?.notFound ? null : json;
   } catch { return null; }
+}
+
+async function fetchWorkerScoresBatch(symbols) {
+  try {
+    const res = await fetch(`${WORKER_SCORES_URL}?symbols=${symbols.map(encodeURIComponent).join(',')}`, {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return {};
+    return await res.json();
+  } catch { return {}; }
 }
 
 const FALLBACK_UNIVERSE = [
@@ -92,27 +103,25 @@ let _mag7Cache = null;
 
 async function loadMag7Picks() {
   if (_mag7Cache) return _mag7Cache;
-  const results = [];
-  await Promise.allSettled(MAG7.map(async sym => {
-    try {
-      const [{ data }, workerScore] = await Promise.all([
-        fetchAllData(sym, true),
-        fetchWorkerScore(sym),
-      ]);
-      results.push({
-        symbol:    sym,
-        name:      data?.name ?? sym,
-        score:     workerScore?.score ?? null,
-        rating:    workerScore?.rating ?? 'wait',
-        price:     data?.price    ?? null,
-        changePct: data?.changePct ?? null,
-        ath:       data?.high52w  ?? null,
-        marketCap: data?.marketCap ?? null,
-        aboveMA200: null,
-      });
-    } catch {}
-  }));
-  _mag7Cache = MAG7.map(sym => results.find(r => r.symbol === sym)).filter(Boolean);
+  const [workerMap, liveResults] = await Promise.all([
+    fetchWorkerScoresBatch(MAG7),
+    Promise.allSettled(MAG7.map(sym => fetchAllData(sym, true))),
+  ]);
+  _mag7Cache = MAG7.map((sym, i) => {
+    const ws = workerMap[sym] ?? null;
+    const data = liveResults[i].status === 'fulfilled' ? liveResults[i].value?.data : null;
+    return {
+      symbol:    sym,
+      name:      data?.name ?? ws?.name ?? sym,
+      score:     ws?.score ?? null,
+      rating:    ws?.rating ?? 'wait',
+      price:     data?.price    ?? ws?.price    ?? null,
+      changePct: data?.changePct ?? ws?.changePct ?? null,
+      ath:       data?.high52w  ?? ws?.ath       ?? null,
+      marketCap: data?.marketCap ?? ws?.marketCap ?? null,
+      aboveMA200: ws?.aboveMA200 ?? null,
+    };
+  });
   return _mag7Cache;
 }
 
@@ -128,26 +137,27 @@ async function loadWatchlistPicks() {
   if (_wlPicksCache) return _wlPicksCache;
   const list = getWatchlist();
   if (!list.length) return [];
-  const results = [];
-  await Promise.allSettled(list.map(async item => {
-    try {
-      const [{ data }, workerScore] = await Promise.all([
-        fetchAllData(item.symbol, true),
-        fetchWorkerScore(item.symbol),
-      ]);
-      results.push({
-        symbol:    item.symbol,
-        name:      data?.name ?? item.name ?? item.symbol,
-        score:     workerScore?.score ?? null,
-        rating:    workerScore?.rating ?? item.rating ?? 'wait',
-        price:     data?.price    ?? null,
-        changePct: data?.changePct ?? null,
-        ath:       data?.high52w  ?? null,
-        marketCap: data?.marketCap ?? null,
-        aboveMA200: null,
-      });
-    } catch {}
-  }));
+  const syms = list.map(item => item.symbol);
+  const [workerMap, liveResults] = await Promise.all([
+    fetchWorkerScoresBatch(syms),
+    Promise.allSettled(syms.map(sym => fetchAllData(sym, true))),
+  ]);
+  const results = syms.map((sym, i) => {
+    const item = list[i];
+    const ws   = workerMap[sym] ?? null;
+    const data = liveResults[i].status === 'fulfilled' ? liveResults[i].value?.data : null;
+    return {
+      symbol:    sym,
+      name:      data?.name ?? ws?.name ?? item.name ?? sym,
+      score:     ws?.score ?? null,
+      rating:    ws?.rating ?? item.rating ?? 'wait',
+      price:     data?.price    ?? ws?.price    ?? null,
+      changePct: data?.changePct ?? ws?.changePct ?? null,
+      ath:       data?.high52w  ?? ws?.ath       ?? null,
+      marketCap: data?.marketCap ?? ws?.marketCap ?? null,
+      aboveMA200: ws?.aboveMA200 ?? null,
+    };
+  });
   _wlPicksCache = results.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   return _wlPicksCache;
 }
