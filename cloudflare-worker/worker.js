@@ -453,14 +453,16 @@ async function scoreStock(symbol, env) {
 
     // ── Compute MA200 and RSI from Yahoo 5Y weekly closes ────────
     // 200 trading days ÷ 5 days/week = 40 weeks → use last 40 weekly closes
-    const closes   = chart?.closes ?? [];
+    const closes     = chart?.closes     ?? [];
+    const timestamps = chart?.timestamps ?? [];
     let ma200      = null;
     let aboveMA200 = null;
     if (closes.length >= 20 && price != null) {
       ma200 = calcSMA(closes, Math.min(40, closes.length));
       if (ma200 != null) aboveMA200 = price >= ma200;
     }
-    const rsi = closes.length >= 15 ? calcRSI(closes) : null;
+    const rsi   = closes.length >= 15 ? calcRSI(closes) : null;
+    const highs = countHighs(closes, timestamps);
 
     // ── Sector key from Finnhub profile (same getSectorKey logic as scoring.js)
     const sectorKey = getSectorKey(profile?.finnhubIndustry ?? null);
@@ -581,10 +583,10 @@ async function scoreStock(symbol, env) {
         debt:             scoreDebt(debtEquityFinal, sectorKey),
         institutional:    null,
         analysts:         null,
-        momentum:         null,
+        momentum:         scoreMomentum(changePct, price, high52w, low52w),
         technical:        null,
         ath:              scoreATH(price, high52w, chart?.ath ?? null),
-        highs:            null,
+        highs:            scoreHighs(highs),
       },
 
       // Family scores
@@ -600,7 +602,7 @@ async function scoreStock(symbol, env) {
         rsi,
         macd:     calcMACD(closes),
         athPrice: chart?.ath ?? null,
-        highs:    null,
+        highs,
       },
     };
 
@@ -755,7 +757,17 @@ async function fetchChart(symbol) {
     const result = json?.chart?.result?.[0];
     if (!result) return null;
     const meta   = result.meta || {};
-    const closes = (result.indicators?.quote?.[0]?.close ?? []).filter(v => v != null);
+    const rawCloses     = result.indicators?.quote?.[0]?.close ?? [];
+    const rawTimestamps = result.timestamp ?? [];
+    // Keep only entries where close is not null
+    const closes     = [];
+    const timestamps = [];
+    for (let i = 0; i < rawCloses.length; i++) {
+      if (rawCloses[i] != null) {
+        closes.push(rawCloses[i]);
+        timestamps.push(rawTimestamps[i] ?? null);
+      }
+    }
     const price   = meta.regularMarketPrice ?? (closes.length ? closes[closes.length - 1] : null);
     const prevClose = closes.length >= 2 ? closes[closes.length - 2] : null;
     const changePct = price != null && prevClose != null && prevClose !== 0
@@ -765,6 +777,7 @@ async function fetchChart(symbol) {
     const ath = closes.length ? Math.max(...closes) : null;
     return {
       closes,
+      timestamps,
       price,
       name:     meta.longName ?? meta.shortName ?? symbol,
       changePct,
@@ -943,6 +956,42 @@ function scoreRSI(rsi) {
   if (rsi < 30) return 70; if (rsi < 50) return 80;
   if (rsi < 65) return 65; if (rsi < 75) return 35;
   return 15;
+}
+
+function scoreMomentum(changePct, price, high52w, low52w) {
+  if (changePct == null) return null;
+  const dailyScore = normalizeLinear(changePct, -5, 5);
+  if (high52w == null || low52w == null || price == null) return dailyScore;
+  const range = high52w - low52w;
+  if (range === 0) return dailyScore;
+  const position = (price - low52w) / range;
+  return (dailyScore * 0.4 + position * 100 * 0.6);
+}
+
+function countHighs(closes, timestamps) {
+  if (!closes || !timestamps || closes.length < 2) return { y1: 0, y3: 0, y5: 0 };
+  const now = Date.now() / 1000;
+  const y1 = now - 365 * 86400;
+  const y3 = now - 3 * 365 * 86400;
+  const y5 = now - 5 * 365 * 86400;
+  let max = 0, h1 = 0, h3 = 0, h5 = 0;
+  for (let i = 0; i < closes.length; i++) {
+    const p = closes[i];
+    const t = timestamps[i];
+    if (p > max) {
+      max = p;
+      if (t >= y1) h1++;
+      if (t >= y3) h3++;
+      if (t >= y5) h5++;
+    }
+  }
+  return { y1: h1, y3: h3, y5: h5 };
+}
+
+function scoreHighs(highsBroken) {
+  if (!highsBroken) return null;
+  const { y1 = 0, y3 = 0, y5 = 0 } = highsBroken;
+  return Math.min(100, (y1 * 20 + y3 * 10 + y5 * 5));
 }
 
 function scoreMultiples(pe, pb, ps, sectorKey) {
