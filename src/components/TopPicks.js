@@ -59,7 +59,7 @@ async function fetchWorkerPicks() {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
   if (!json?.picks?.length) throw new Error('No picks in response');
-  return json.picks.slice(0, 10);
+  return { picks: json.picks.slice(0, 10), scannedAt: json.scannedAt ?? null };
 }
 
 // ── Local fallback ────────────────────────────────────────────────────────────
@@ -275,6 +275,7 @@ export async function renderTopPicks(container) {
   container.innerHTML = `
     <div class="sidebar-card tp-card">
       <h2 class="section-title card-title tp-main-title">S&amp;P 500 STOCKS</h2>
+      <p class="tp-scanned-at" id="tp-scanned-at"></p>
       <div class="tp-toggle">
         <button class="tp-toggle-btn active" data-tab="picks">Top Picks</button>
         <button class="tp-toggle-btn" data-tab="mag7">Mag 7</button>
@@ -316,11 +317,22 @@ export async function renderTopPicks(container) {
   let topPicksData = null; // cache for this render
 
   // ── Load Top Picks ────────────────────────────────────────────────────────
+  const scannedEl = container.querySelector('#tp-scanned-at');
+
+  function setScannedAt(isoStr) {
+    if (!scannedEl || !isoStr) return;
+    const d = new Date(isoStr);
+    if (isNaN(d)) return;
+    scannedEl.textContent = `עודכן: ${d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+  }
+
   try {
     let picks = picksFromCache();
     if (!picks) {
       try {
-        picks = await fetchWorkerPicks();
+        const result = await fetchWorkerPicks();
+        picks = result.picks;
+        setScannedAt(result.scannedAt);
         if (picks?.length) picksToCache(picks);
       } catch (e) {
         console.warn('[TopPicks] Worker unavailable, local fallback:', e.message);

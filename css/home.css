@@ -1474,7 +1474,14 @@
   font-size: 16px;
   letter-spacing: 2px;
   color: var(--text);
-  margin-bottom: 12px;
+  margin-bottom: 4px;
+}
+
+.tp-scanned-at {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-3);
+  margin: 0 0 12px 0;
 }
 
 .tp-toggle {
