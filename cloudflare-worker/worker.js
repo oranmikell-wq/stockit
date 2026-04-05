@@ -446,6 +446,10 @@ async function scoreStock(symbol, env) {
     if (latestShort?.shortInterest && latestShort?.sharesOutstanding && latestShort.sharesOutstanding > 0) {
       shortFloat = (latestShort.shortInterest / latestShort.sharesOutstanding) * 100;
     }
+    // Fallback: use shortRatioTTM from Finnhub metrics (days-to-cover as proxy)
+    if (shortFloat == null && m.shortRatioTTM != null && m.shortRatioTTM > 0) {
+      shortFloat = Math.min(m.shortRatioTTM * 2, 30); // rough proxy: ratio*2 ≈ float %
+    }
 
     // ── Insider Ownership % — from existing metrics (same field browser uses) ──
     // Finnhub returns insiderOwnershipPercentage as a % value (e.g. 0.28 for 0.28%)
@@ -474,6 +478,14 @@ async function scoreStock(symbol, env) {
     const fcfFinal            = edgar?.fcf            ?? syntheticFCF;
     const opMarginFinal       = edgar?.operatingMargin ?? m.operatingMarginTTM   ?? null;
 
+    // ── PEG — Finnhub first, synthetic fallback: P/E ÷ EPS growth % ──────
+    const pegRaw = m.pegNormalizedAnnual ?? null;
+    const peFinal = m.peTTM ?? null;
+    const pegSynthetic = (pegRaw == null && peFinal != null && peFinal > 0 && epsGrowthFinal != null && epsGrowthFinal > 0)
+      ? peFinal / epsGrowthFinal
+      : null;
+    const pegFinal = pegRaw ?? pegSynthetic;
+
     // ── Growth family (35%) ───────────────────────────────────────
     const familyGrowth = wAvg([
       { score: scoreEPSSurprise(epsSurprise),         weight: GROWTH_WEIGHTS.epsSurprise },
@@ -483,7 +495,7 @@ async function scoreStock(symbol, env) {
 
     // ── Valuation family (25%) ────────────────────────────────────
     const familyValuation = wAvg([
-      { score: scorePEG(m.pegNormalizedAnnual ?? null), weight: VALUATION_WEIGHTS.peg },
+      { score: scorePEG(pegFinal), weight: VALUATION_WEIGHTS.peg },
       { score: scoreFCF(fcfFinal, marketCap),           weight: VALUATION_WEIGHTS.fcf },
       { score: scorePEonly(m.peTTM ?? null, sectorKey), weight: VALUATION_WEIGHTS.pe  },
     ]);
@@ -535,7 +547,7 @@ async function scoreStock(symbol, env) {
       pe:              m.peTTM ?? null,
       pb:              m.pbAnnual ?? null,
       ps:              m.psAnnual ?? null,
-      peg:             m.pegNormalizedAnnual ?? null,
+      peg:             pegFinal,
       beta:            m.beta ?? null,
       dividend:        m.dividendYieldIndicatedAnnual != null ? m.dividendYieldIndicatedAnnual / 100 : null,
       debtEquity:      debtEquityFinal,
@@ -568,7 +580,7 @@ async function scoreStock(symbol, env) {
         eps:              scoreEPS(epsGrowthFinal),
         revenue:          scoreRevenue(revenueGrowthFinal),
         epsSurprise:      scoreEPSSurprise(epsSurprise),
-        peg:              scorePEG(m.pegNormalizedAnnual ?? null),
+        peg:              scorePEG(pegFinal),
         fcf:              scoreFCF(fcfFinal, marketCap),
         peOnly:           scorePEonly(m.peTTM ?? null, sectorKey),
         multiples:        scoreMultiples(m.peTTM ?? null, m.pbAnnual ?? null, m.psAnnual ?? null, sectorKey),
