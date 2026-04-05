@@ -302,14 +302,6 @@ export async function renderTopPicks(container) {
         if (picks?.length) picksToCache(picks);
       }
     }
-    // Override Worker score with locally-computed score when available.
-    // The results page writes bon-score-{SYM} after a full calcScore() run
-    // which uses more data sources than the Worker (FMP + Yahoo + Finnhub).
-    picks = picks?.map(p => {
-      const local = getCachedScore(p.symbol);
-      if (local?.score != null) return { ...p, score: local.score, rating: local.rating };
-      return p;
-    });
     topPicksData = picks;
     fillTbody(picks, tbody);
   } catch {

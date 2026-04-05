@@ -143,7 +143,8 @@ const ALLOWED_HOSTS = [
 ];
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const KV_KEY = 'top-picks-v7'; // v7: MA200 fixed (40w weekly ≈ 200d), insider from metrics
+const KV_KEY        = 'top-picks-v8';   // v8: includes family scores
+const KV_SCORES_KEY = 'all-scores-v1';  // full score map for all scanned stocks
 
 // ── Main export ───────────────────────────────────────────────────────────────
 export default {
@@ -186,6 +187,27 @@ export default {
         return new Response(JSON.stringify({ error: e.message }), {
           status: 500,
           headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // ── /score?symbol=AAPL endpoint ─────────────────────────────────────────
+    if (url.pathname === '/score') {
+      const sym = (url.searchParams.get('symbol') || '').toUpperCase();
+      if (!sym) {
+        return new Response(JSON.stringify({ error: 'Missing symbol' }), {
+          status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+      try {
+        const allScores = await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' });
+        const entry = allScores?.[sym] ?? null;
+        return new Response(JSON.stringify(entry ?? { notFound: true }), {
+          headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
         });
       }
     }
@@ -292,9 +314,21 @@ async function runDailyScan(env) {
     scored: results.length,
   };
 
-  await env.TOP_PICKS_KV.put(KV_KEY, JSON.stringify(payload), {
-    expirationTtl: 60 * 60 * 30, // 30 hours (keeps yesterday's results if scan fails)
-  });
+  // Build flat map of all scores for /score?symbol= endpoint
+  const allScores = {};
+  for (const r of results) {
+    allScores[r.symbol] = {
+      score:    r.score,
+      rating:   r.rating,
+      families: r.families,
+      scannedAt: payload.scannedAt,
+    };
+  }
+
+  await Promise.all([
+    env.TOP_PICKS_KV.put(KV_KEY, JSON.stringify(payload), { expirationTtl: 60 * 60 * 30 }),
+    env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(allScores), { expirationTtl: 60 * 60 * 30 }),
+  ]);
 
   console.log(`[Scanner] Done. Scored ${results.length}/${SP500_UNIVERSE.length} stocks. Top: ${top20[0]?.symbol} (${top20[0]?.score})`);
 }
@@ -409,8 +443,14 @@ async function scoreStock(symbol, env) {
       price, changePct,
       high52: high52w,
       ath: chart?.ath ?? null,
-      marketCap: marketCap,     // raw dollars (marketCapM * 1e6) — matches Yahoo Finance format
+      marketCap: marketCap,
       aboveMA200,
+      families: {
+        growth:    familyGrowth    != null ? Math.round(familyGrowth)    : null,
+        valuation: familyValuation != null ? Math.round(familyValuation) : null,
+        quality:   familyQuality   != null ? Math.round(familyQuality)   : null,
+        technical: familyTechnical != null ? Math.round(familyTechnical) : null,
+      },
     };
 
   } catch (e) {

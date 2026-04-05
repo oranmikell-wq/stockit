@@ -1,5 +1,18 @@
 // main.js — entry point, orchestrates all modules
 
+const WORKER_SCORE_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/score';
+
+async function fetchWorkerScore(symbol) {
+  try {
+    const res = await fetch(`${WORKER_SCORE_URL}?symbol=${encodeURIComponent(symbol)}`, {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.notFound ? null : json;
+  } catch { return null; }
+}
+
 import { applyTranslations, toggleLang, t } from './utils/i18n.js?v=6';
 import { fetchAllData, fetchHistory, fetchStockFullData, fetchIndexQuote, fetchProxy, fetchProxyRaw } from './services/StockService.js';
 import { calcScore } from './utils/scoring.js';
@@ -320,21 +333,6 @@ function navigateTo(page, symbol = null) {
     renderHomeWatchlist();
     if (!localStorage.getItem('bon-toppicks-v10')) {
       renderTopPicks(document.getElementById('top-picks-section'));
-    } else {
-      // Patch scores in-place with any fresh browser-computed scores
-      document.querySelectorAll('#tp-tbody tr[data-symbol]').forEach(row => {
-        const sym = row.dataset.symbol;
-        if (!sym) return;
-        const raw = localStorage.getItem(`bon-score-${sym.toUpperCase()}`);
-        if (!raw) return;
-        const { score, rating, ts } = JSON.parse(raw);
-        if (!ts || Date.now() - ts > 24 * 60 * 60 * 1000) return;
-        const badge = row.querySelector('.tp-badge');
-        if (badge && score != null) {
-          badge.textContent = score;
-          badge.className = `tp-badge ${rating === 'buy' ? 'tp-badge-buy' : rating === 'sell' ? 'tp-badge-sell' : 'tp-badge-wait'}`;
-        }
-      });
     }
   }
   if (page === 'market' && !_marketDataLoaded) {
@@ -524,14 +522,20 @@ async function loadResults(symbol, isRefresh = false) {
     // If the user searched a different stock while this was loading, discard
     if (!isCurrent()) return;
 
+    // Try Worker score first (single source of truth for S&P 500 stocks)
+    const workerScore = await fetchWorkerScore(symbol);
     const scored = calcScore(data, h5, fullStockData?.indicators ?? {});
+
+    // If Worker has a score, use it as the authoritative score + families
+    if (workerScore?.score != null) {
+      scored.score  = workerScore.score;
+      scored.rating = workerScore.rating;
+      if (workerScore.families) {
+        scored.families = workerScore.families;
+      }
+    }
+
     currentStock = { ...data, ...scored };
-    // Cache score for Top Picks display
-    try {
-      localStorage.setItem(`bon-score-${symbol.toUpperCase()}`, JSON.stringify({ score: scored.score, rating: scored.rating, ts: Date.now() }));
-      // Invalidate Top Picks cache so it picks up the fresh score on next home visit
-      localStorage.removeItem('bon-toppicks-v10');
-    } catch {}
 
     if (offline && cacheDate) {
       document.getElementById('offline-banner').classList.remove('hidden');
