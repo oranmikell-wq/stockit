@@ -830,7 +830,7 @@ function renderResults(data, scored) {
   if (gaugeLabel) { gaugeLabel.textContent = t(scored.rating); gaugeLabel.className = `gauge-label badge-${scored.rating}`; }
   if (partialWarn) partialWarn.classList.toggle('hidden', !scored.isPartial);
 
-  const fmt = (n, dec = 2) => n != null ? n.toFixed(dec) : t('noData');
+  const fmt = (n, dec = 2) => { const num = parseFloat(n); return !isNaN(num) ? num.toFixed(dec) : t('noData'); };
   const currency = data.currency || 'USD';
 
   const priceEl  = document.getElementById('info-price');
@@ -848,7 +848,7 @@ function renderResults(data, scored) {
   document.getElementById('info-mktcap').textContent = formatMarketCap(data.marketCap);
   document.getElementById('info-beta').textContent = fmt(data.beta);
   document.getElementById('info-dividend').textContent =
-    data.dividend != null ? `${data.dividend.toFixed(2)}%` : t('noData');
+    data.dividend != null ? `${parseFloat(data.dividend).toFixed(2)}%` : t('noData');
 
   const earningsEl = document.getElementById('info-earnings');
   const earningsDaysEl = document.getElementById('info-earnings-days');
@@ -867,9 +867,12 @@ function renderResults(data, scored) {
   const targetEl = document.getElementById('info-target');
   const targetRangeEl = document.getElementById('info-target-range');
   if (data.targetMean) {
-    targetEl.textContent = `${currency} ${data.targetMean.toFixed(2)}`;
-    targetRangeEl.textContent = (data.targetLow && data.targetHigh)
-      ? `${data.targetLow.toFixed(0)}–${data.targetHigh.toFixed(0)}`
+    const tMean = parseFloat(data.targetMean);
+    const tLow  = parseFloat(data.targetLow);
+    const tHigh = parseFloat(data.targetHigh);
+    targetEl.textContent = !isNaN(tMean) ? `${currency} ${tMean.toFixed(2)}` : t('noData');
+    targetRangeEl.textContent = (!isNaN(tLow) && !isNaN(tHigh))
+      ? `${tLow.toFixed(0)}–${tHigh.toFixed(0)}`
       : '';
   } else {
     targetEl.textContent = t('noData');
