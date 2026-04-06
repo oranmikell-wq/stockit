@@ -84,14 +84,16 @@ async function localFallback() {
       if (!data) return;
       if (cached) {
         results.push({ symbol: sym, name: data.name ?? sym, score: cached.score, rating: cached.rating,
-          price: data.price, changePct: data.changePct, ath: data.high52w ?? null, aboveMA200: null });
+          price: data.price, changePct: data.changePct, ath: data.high52w ?? null,
+          marketCap: data.marketCap ?? null, aboveMA200: cached.aboveMA200 ?? null });
         return;
       }
       const history = await fetchHistory(sym, '5Y').catch(() => []);
       const scored  = calcScore(data, history ?? [], {});
       if (scored.score == null) return;
       results.push({ symbol: sym, name: data.name ?? sym, score: scored.score, rating: scored.rating,
-        price: data.price, changePct: data.changePct, ath: data.high52w ?? null, aboveMA200: null });
+        price: data.price, changePct: data.changePct, ath: data.high52w ?? null,
+        marketCap: data.marketCap ?? null, aboveMA200: scored.aboveMA200 ?? null });
     } catch {}
   }));
   return results.sort((a, b) => b.score - a.score).slice(0, 10);
