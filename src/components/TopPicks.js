@@ -99,35 +99,53 @@ async function localFallback() {
   return results.sort((a, b) => b.score - a.score).slice(0, 10);
 }
 
+// ── Shared helper: build picks from worker + live data ────────────────────────
+async function loadSymbolPicks(symbols) {
+  const [workerMap, liveResults] = await Promise.all([
+    fetchWorkerScoresBatch(symbols),
+    Promise.allSettled(symbols.map(sym => fetchAllData(sym, true))),
+  ]);
+  return symbols.map((sym, i) => {
+    const ws   = workerMap[sym] ?? null;
+    const data = liveResults[i].status === 'fulfilled' ? liveResults[i].value?.data : null;
+    return {
+      symbol:     sym,
+      name:       data?.name      ?? ws?.name      ?? sym,
+      score:      ws?.score       ?? null,
+      rating:     ws?.rating      ?? 'wait',
+      price:      data?.price     ?? ws?.price     ?? null,
+      changePct:  data?.changePct ?? ws?.changePct ?? null,
+      ath:        data?.high52w   ?? ws?.ath        ?? null,
+      marketCap:  data?.marketCap ?? ws?.marketCap ?? null,
+      aboveMA200: ws?.aboveMA200  ?? null,
+    };
+  });
+}
+
 // ── Mag 7 picks ───────────────────────────────────────────────────────────────
 const MAG7 = ['AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA'];
-const MAG7_TTL = 60 * 60 * 1000; // 1 hour
+const MAG7_TTL = 60 * 60 * 1000;
 let _mag7Cache = null;
 let _mag7CacheTs = 0;
 
 async function loadMag7Picks() {
   if (_mag7Cache && Date.now() - _mag7CacheTs < MAG7_TTL) return _mag7Cache;
-  const [workerMap, liveResults] = await Promise.all([
-    fetchWorkerScoresBatch(MAG7),
-    Promise.allSettled(MAG7.map(sym => fetchAllData(sym, true))),
-  ]);
   _mag7CacheTs = Date.now();
-  _mag7Cache = MAG7.map((sym, i) => {
-    const ws = workerMap[sym] ?? null;
-    const data = liveResults[i].status === 'fulfilled' ? liveResults[i].value?.data : null;
-    return {
-      symbol:    sym,
-      name:      data?.name ?? ws?.name ?? sym,
-      score:     ws?.score ?? null,
-      rating:    ws?.rating ?? 'wait',
-      price:     data?.price    ?? ws?.price    ?? null,
-      changePct: data?.changePct ?? ws?.changePct ?? null,
-      ath:       data?.high52w  ?? ws?.ath       ?? null,
-      marketCap: data?.marketCap ?? ws?.marketCap ?? null,
-      aboveMA200: ws?.aboveMA200 ?? null,
-    };
-  });
+  _mag7Cache = await loadSymbolPicks(MAG7);
   return _mag7Cache;
+}
+
+// ── Popular picks ─────────────────────────────────────────────────────────────
+const POPULAR = ['AAPL','TSLA','NVDA','AMZN','META','GOOGL','MSFT','NFLX','AMD','PLTR'];
+const POPULAR_TTL = 60 * 60 * 1000;
+let _popularCache = null;
+let _popularCacheTs = 0;
+
+async function loadPopularPicks() {
+  if (_popularCache && Date.now() - _popularCacheTs < POPULAR_TTL) return _popularCache;
+  _popularCacheTs = Date.now();
+  _popularCache = await loadSymbolPicks(POPULAR);
+  return _popularCache;
 }
 
 // ── Watchlist picks ───────────────────────────────────────────────────────────
@@ -283,6 +301,7 @@ export async function renderTopPicks(container) {
       <p class="tp-scanned-at" id="tp-scanned-at"></p>
       <div class="tp-toggle">
         <button class="tp-toggle-btn active" data-tab="picks">Top Picks</button>
+        <button class="tp-toggle-btn" data-tab="popular">Popular</button>
         <button class="tp-toggle-btn" data-tab="mag7">Mag 7</button>
         <button class="tp-toggle-btn" data-tab="watchlist">Watchlist</button>
       </div>
@@ -313,11 +332,12 @@ export async function renderTopPicks(container) {
     </div>`;
 
   const tbody    = container.querySelector('#tp-tbody');
-  const btnPicks = container.querySelector('[data-tab="picks"]');
-  const btnMag7  = container.querySelector('[data-tab="mag7"]');
-  const btnWl    = container.querySelector('[data-tab="watchlist"]');
-  const allBtns  = [btnPicks, btnMag7, btnWl];
-  const setActive = btn => allBtns.forEach(b => b.classList.toggle('active', b === btn));
+  const btnPicks   = container.querySelector('[data-tab="picks"]');
+  const btnPopular = container.querySelector('[data-tab="popular"]');
+  const btnMag7    = container.querySelector('[data-tab="mag7"]');
+  const btnWl      = container.querySelector('[data-tab="watchlist"]');
+  const allBtns    = [btnPicks, btnPopular, btnMag7, btnWl];
+  const setActive  = btn => allBtns.forEach(b => b.classList.toggle('active', b === btn));
 
   let topPicksData = null; // cache for this render
 
@@ -362,6 +382,14 @@ export async function renderTopPicks(container) {
     if (btnPicks.classList.contains('active')) return;
     setActive(btnPicks);
     fillTbody(topPicksData, tbody);
+  });
+
+  btnPopular.addEventListener('click', async () => {
+    if (btnPopular.classList.contains('active')) return;
+    setActive(btnPopular);
+    showSkeleton(tbody);
+    const popularPicks = await loadPopularPicks();
+    fillTbody(popularPicks, tbody);
   });
 
   btnMag7.addEventListener('click', async () => {
