@@ -228,7 +228,7 @@ export default {
           try {
             const scores = (await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' })) ?? {};
             scores[sym] = result;
-            await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(scores), { expirationTtl: 60 * 60 * 6 });
+            await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(scores), { expirationTtl: 60 * 60 * 72 });
           } catch {}
         })());
         return new Response(JSON.stringify(result), {
@@ -276,7 +276,7 @@ export default {
               try {
                 const scores = (await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' })) ?? {};
                 Object.assign(scores, newEntries);
-                await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(scores), { expirationTtl: 60 * 60 * 6 });
+                await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(scores), { expirationTtl: 60 * 60 * 72 });
               } catch {}
             })());
           }
