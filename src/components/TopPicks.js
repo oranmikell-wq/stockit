@@ -11,7 +11,7 @@ const WORKER_URL        = 'https://bulltherapy-proxy.oranmikell.workers.dev/top-
 const WORKER_SCORE_URL  = 'https://bulltherapy-proxy.oranmikell.workers.dev/score';
 const WORKER_SCORES_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/scores';
 const PICKS_KEY  = 'bon-toppicks-v10';
-const PICKS_TTL  = 4 * 60 * 60 * 1000;
+const PICKS_TTL  = 60 * 60 * 1000; // 1 hour
 
 async function fetchWorkerScore(symbol) {
   try {
@@ -99,14 +99,17 @@ async function localFallback() {
 
 // ── Mag 7 picks ───────────────────────────────────────────────────────────────
 const MAG7 = ['AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA'];
+const MAG7_TTL = 60 * 60 * 1000; // 1 hour
 let _mag7Cache = null;
+let _mag7CacheTs = 0;
 
 async function loadMag7Picks() {
-  if (_mag7Cache) return _mag7Cache;
+  if (_mag7Cache && Date.now() - _mag7CacheTs < MAG7_TTL) return _mag7Cache;
   const [workerMap, liveResults] = await Promise.all([
     fetchWorkerScoresBatch(MAG7),
     Promise.allSettled(MAG7.map(sym => fetchAllData(sym, true))),
   ]);
+  _mag7CacheTs = Date.now();
   _mag7Cache = MAG7.map((sym, i) => {
     const ws = workerMap[sym] ?? null;
     const data = liveResults[i].status === 'fulfilled' ? liveResults[i].value?.data : null;
