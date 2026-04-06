@@ -401,26 +401,46 @@ async function runRollingScan(env) {
   const state = (await env.TOP_PICKS_KV.get(KV_STATE_KEY, { type: 'json' })) ?? { offset: 0 };
   let offset = typeof state.offset === 'number' ? state.offset : 0;
 
-  // Fetch fresh universe from FMP at start of each new cycle
   let universe;
+  let allScores;
+
   if (offset === 0) {
+    // ── New cycle: fetch live universe, start with CLEAN scores in memory ──
+    // NOTE: We do NOT write {} to KV here — writing and immediately reading
+    // back would return stale data due to ~50s KV propagation delay.
+    // Instead we start with {} in memory and overwrite KV with the first
+    // batch of scored stocks (written below), which naturally resets it.
     const fresh = await fetchSP500Universe();
     if (fresh && fresh.length >= 100) {
       universe = fresh;
       await env.TOP_PICKS_KV.put(KV_UNIVERSE_KEY, JSON.stringify(universe), { expirationTtl: TTL });
-      await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify({}), { expirationTtl: TTL });
-      console.log(`[Scanner] New cycle. Universe: ${universe.length} stocks from FMP.`);
+      console.log(`[Scanner] New cycle. Universe: ${universe.length} stocks from iShares.`);
     } else {
       universe = SP500_UNIVERSE;
-      console.log(`[Scanner] FMP unavailable — fallback to static list (${universe.length} stocks).`);
+      console.log(`[Scanner] iShares unavailable — fallback to static list (${universe.length} stocks).`);
     }
+    allScores = {}; // clean slate in memory
   } else {
-    universe = (await env.TOP_PICKS_KV.get(KV_UNIVERSE_KEY, { type: 'json' })) ?? SP500_UNIVERSE;
+    universe   = (await env.TOP_PICKS_KV.get(KV_UNIVERSE_KEY, { type: 'json' })) ?? SP500_UNIVERSE;
+    allScores  = (await env.TOP_PICKS_KV.get(KV_SCORES_KEY,   { type: 'json' })) ?? {};
   }
 
-  const allScores = (await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' })) ?? {};
   const chunk = universe.slice(offset, offset + SCAN_PER_RUN);
+
+  // ── Edge case: offset past end of universe ─────────────────────────────────
+  // This can happen if the universe shrank between runs. Write whatever
+  // scores we have as top-picks so the cycle doesn't end silently.
   if (!chunk.length) {
+    const allResults = Object.values(allScores).filter(r => r.score != null);
+    if (allResults.length > 0) {
+      allResults.sort((a, b) => b.score - a.score);
+      const now = new Date().toISOString();
+      await env.TOP_PICKS_KV.put(KV_KEY, JSON.stringify({
+        picks: allResults.slice(0, 20), scannedAt: now,
+        universe: universe.length, scored: allResults.length,
+      }), { expirationTtl: TTL });
+      console.log(`[Scanner] Edge reset — wrote top picks from ${allResults.length} scores.`);
+    }
     await env.TOP_PICKS_KV.put(KV_STATE_KEY, JSON.stringify({ offset: 0 }), { expirationTtl: TTL });
     return;
   }
@@ -433,11 +453,12 @@ async function runRollingScan(env) {
     } catch {}
   }
 
+  // Write scores — at offset=0 this naturally overwrites any stale KV data
   await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(allScores), { expirationTtl: TTL });
 
   const nextOffset = offset + chunk.length;
   if (nextOffset >= universe.length) {
-    // Cycle complete — build top picks and reset
+    // ── Cycle complete — publish top picks and reset ───────────────────────
     const allResults = Object.values(allScores).filter(r => r.score != null);
     allResults.sort((a, b) => b.score - a.score);
     await env.TOP_PICKS_KV.put(KV_KEY, JSON.stringify({
