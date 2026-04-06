@@ -30,7 +30,7 @@ const SP500_UNIVERSE = [
   // ── Financials ─────────────────────────────────────────────────────────────
   // Banks
   'JPM','BAC','WFC','GS','MS','USB','PNC','TFC','COF','MTB',
-  'RF','FITB','HBAN','KEY','CFG','ZION','FHN','CMA',
+  'RF','FITB','HBAN','KEY','CFG','ZION','FHN',
   // Exchanges, brokers & wealth management
   'BLK','AXP','SCHW','SPGI','MCO','ICE','CME','CBOE','NDAQ','MKTX',
   'STT','BK','NTRS','TROW','IVZ','BEN','VOYA','RJF','FDS','SEIC','BR',
@@ -143,8 +143,10 @@ const ALLOWED_HOSTS = [
 ];
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const KV_KEY        = 'top-picks-v9';   // v9: full fundamentals + criteria scores
-const KV_SCORES_KEY = 'all-scores-v3';  // v3: added FMP PEG + Short Float
+const KV_KEY          = 'top-picks-v9';      // v9: full fundamentals + criteria scores
+const KV_SCORES_KEY   = 'all-scores-v3';     // v3: added FMP PEG + Short Float
+const KV_STATE_KEY    = 'scan-state-v1';     // rolling scan offset
+const KV_UNIVERSE_KEY = 'sp500-universe-v1'; // live S&P 500 list from FMP
 
 // ── Main export ───────────────────────────────────────────────────────────────
 export default {
@@ -157,30 +159,19 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
 
-    // ── /scan-chunk?offset=N&secret=XXX — self-chaining scanner ────────────────
-    if (url.pathname === '/scan-chunk') {
-      const runSecret = env.SCAN_SECRET || '';
-      if (url.searchParams.get('secret') !== runSecret || !runSecret) {
-        return new Response('Unauthorized', { status: 401 });
-      }
-      const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
-      ctx.waitUntil(runScanChunk(offset, env, runSecret));
-      return new Response(JSON.stringify({ status: 'chunk started', offset }), {
-        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
-      });
-    }
 
     // ── /top-picks endpoint ──────────────────────────────────────────────────
     if (url.pathname === '/top-picks') {
       // Manual trigger: /top-picks?run=1&secret=YOUR_SECRET
       const runSecret = env.SCAN_SECRET || '';
       if (url.searchParams.get('run') === '1' && url.searchParams.get('secret') === runSecret && runSecret) {
-        // Reset scores and kick off chained scan from offset 0
+        // Reset state and run first chunk immediately
         ctx.waitUntil((async () => {
-          await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify({}), { expirationTtl: 60 * 60 * 30 });
-          await fetch(`https://bulltherapy-proxy.oranmikell.workers.dev/scan-chunk?offset=0&secret=${runSecret}`);
+          // Reset offset to 0 — next cron run will fetch fresh universe from FMP
+          await env.TOP_PICKS_KV.put(KV_STATE_KEY, JSON.stringify({ offset: 0 }), { expirationTtl: 60 * 60 * 72 });
+          await runRollingScan(env);
         })());
-        return new Response(JSON.stringify({ status: 'scan started' }), {
+        return new Response(JSON.stringify({ status: 'rolling scan reset — fresh FMP universe on next run' }), {
           headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
         });
       }
@@ -363,87 +354,125 @@ export default {
     }
   },
 
-  // Cron Trigger — runs 4x per day at 03:00, 09:00, 15:00, 21:00 UTC
+  // Cron Trigger — runs every minute. ~50 runs × 10 stocks = 500 stocks in ~50 minutes.
   async scheduled(event, env, ctx) {
-    const runSecret = env.SCAN_SECRET || '';
-    ctx.waitUntil((async () => {
-      await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify({}), { expirationTtl: 60 * 60 * 30 });
-      await fetch(`https://bulltherapy-proxy.oranmikell.workers.dev/scan-chunk?offset=0&secret=${runSecret}`);
-    })());
+    ctx.waitUntil(runRollingScan(env));
   },
 };
 
-// ── Self-chaining chunk scanner ───────────────────────────────────────────────
-// Each invocation scores CHUNK_SIZE stocks, saves to KV, then triggers the next.
-// Free plan: each invocation gets its own 30-second window → 500 stocks in ~100 hops.
-// Finnhub rate: 3 calls/stock × 2 stocks/batch ÷ 7s = 51 req/min (safe under 60).
-const CHUNK_SIZE  = 5;   // stocks scored per invocation
-const CHUNK_BATCH = 2;   // parallel stocks within a chunk
-const CHUNK_DELAY = 3000; // ms between batches (Finnhub rate control)
-
-async function runScanChunk(offset, env, runSecret) {
-  const chunk = SP500_UNIVERSE.slice(offset, offset + CHUNK_SIZE);
-  if (!chunk.length) return;
-
-  const now = new Date().toISOString();
-  const results = [];
-
-  for (let i = 0; i < chunk.length; i += CHUNK_BATCH) {
-    const batch = chunk.slice(i, i + CHUNK_BATCH);
-    const settled = await Promise.allSettled(batch.map(sym => scoreStock(sym, env)));
-    for (const r of settled) {
-      if (r.status === 'fulfilled' && r.value) results.push(r.value);
+// ── Fetch live S&P 500 universe from iShares IVV ETF holdings (daily, free) ──
+// Source: BlackRock iShares Core S&P 500 ETF — the definitive, free, daily list.
+async function fetchSP500Universe() {
+  try {
+    const url = 'https://www.ishares.com/us/products/239726/ishares-core-sp-500-etf/1467271812596.ajax?fileType=csv&fileName=IVV_holdings&dataType=fund';
+    const res = await fetch(url, {
+      headers: { 'User-Agent': UA },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+    const csv = await res.text();
+    const lines = csv.split('\n');
+    // Find header row (contains "Ticker")
+    const headerIdx = lines.findIndex(l => l.startsWith('"Ticker"') || l.startsWith('Ticker'));
+    if (headerIdx < 0) return null;
+    const symbols = [];
+    for (let i = headerIdx + 1; i < lines.length; i++) {
+      const cols = lines[i].split(',');
+      const sym = cols[0]?.replace(/"/g, '').trim();
+      const assetClass = cols[3]?.replace(/"/g, '').trim();
+      // Only include equity holdings with valid tickers
+      if (sym && assetClass === 'Equity' && /^[A-Z]{1,5}$/.test(sym)) {
+        symbols.push(sym);
+      }
     }
-    if (i + CHUNK_BATCH < chunk.length) await sleep(CHUNK_DELAY);
+    return symbols.length >= 400 ? symbols : null;
+  } catch { return null; }
+}
+
+// ── Rolling scan ─────────────────────────────────────────────────────────────
+// Each cron run: load offset → score 10 stocks → save → advance offset.
+// Universe fetched live from FMP at start of each cycle, cached in KV.
+// Fallback: static SP500_UNIVERSE if FMP unavailable.
+const SCAN_PER_RUN = 10;
+
+async function runRollingScan(env) {
+  const TTL = 60 * 60 * 72;
+
+  const state = (await env.TOP_PICKS_KV.get(KV_STATE_KEY, { type: 'json' })) ?? { offset: 0 };
+  let offset = typeof state.offset === 'number' ? state.offset : 0;
+
+  // Fetch fresh universe from FMP at start of each new cycle
+  let universe;
+  if (offset === 0) {
+    const fresh = await fetchSP500Universe();
+    if (fresh && fresh.length >= 100) {
+      universe = fresh;
+      await env.TOP_PICKS_KV.put(KV_UNIVERSE_KEY, JSON.stringify(universe), { expirationTtl: TTL });
+      await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify({}), { expirationTtl: TTL });
+      console.log(`[Scanner] New cycle. Universe: ${universe.length} stocks from FMP.`);
+    } else {
+      universe = SP500_UNIVERSE;
+      console.log(`[Scanner] FMP unavailable — fallback to static list (${universe.length} stocks).`);
+    }
+  } else {
+    universe = (await env.TOP_PICKS_KV.get(KV_UNIVERSE_KEY, { type: 'json' })) ?? SP500_UNIVERSE;
   }
 
-  // Merge into running KV scores map
   const allScores = (await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' })) ?? {};
-  for (const r of results) allScores[r.symbol] = { ...r, scannedAt: now };
-  await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(allScores), { expirationTtl: 60 * 60 * 30 });
+  const chunk = universe.slice(offset, offset + SCAN_PER_RUN);
+  if (!chunk.length) {
+    await env.TOP_PICKS_KV.put(KV_STATE_KEY, JSON.stringify({ offset: 0 }), { expirationTtl: TTL });
+    return;
+  }
 
-  const nextOffset = offset + CHUNK_SIZE;
+  const now = new Date().toISOString();
+  for (const sym of chunk) {
+    try {
+      const result = await scoreStock(sym, env, { scanMode: true });
+      if (result) allScores[sym] = { ...result, scannedAt: now };
+    } catch {}
+  }
 
-  if (nextOffset >= SP500_UNIVERSE.length) {
-    // All stocks scanned — build top picks
+  await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(allScores), { expirationTtl: TTL });
+
+  const nextOffset = offset + chunk.length;
+  if (nextOffset >= universe.length) {
+    // Cycle complete — build top picks and reset
     const allResults = Object.values(allScores).filter(r => r.score != null);
     allResults.sort((a, b) => b.score - a.score);
-    const top20 = allResults.slice(0, 20);
-    const payload = {
-      picks: top20,
-      scannedAt: now,
-      universe: SP500_UNIVERSE.length,
-      scored: allResults.length,
-    };
-    await env.TOP_PICKS_KV.put(KV_KEY, JSON.stringify(payload), { expirationTtl: 60 * 60 * 30 });
-    console.log(`[Scanner] Complete. ${allResults.length} stocks. Top: ${top20[0]?.symbol} (${top20[0]?.score})`);
+    await env.TOP_PICKS_KV.put(KV_KEY, JSON.stringify({
+      picks: allResults.slice(0, 20), scannedAt: now,
+      universe: universe.length, scored: allResults.length,
+    }), { expirationTtl: TTL });
+    await env.TOP_PICKS_KV.put(KV_STATE_KEY, JSON.stringify({ offset: 0 }), { expirationTtl: TTL });
+    console.log(`[Scanner] Cycle complete. Scored ${allResults.length}/${universe.length}.`);
   } else {
-    // Trigger next chunk
-    console.log(`[Scanner] Chunk ${offset}–${offset + CHUNK_SIZE - 1} done (${results.length} scored). Next: ${nextOffset}`);
-    try {
-      await fetch(
-        `https://bulltherapy-proxy.oranmikell.workers.dev/scan-chunk?offset=${nextOffset}&secret=${runSecret}`,
-        { signal: AbortSignal.timeout(5000) }
-      );
-    } catch {}
+    await env.TOP_PICKS_KV.put(KV_STATE_KEY, JSON.stringify({ offset: nextOffset }), { expirationTtl: TTL });
+    console.log(`[Scanner] offset ${offset}→${nextOffset} / ${universe.length}.`);
   }
 }
 
 // ── Score a single stock — uses exact scoring.js formula ─────────────────────
-async function scoreStock(symbol, env) {
+async function scoreStock(symbol, env, { scanMode = false } = {}) {
   try {
-    const [chart, metrics, earningsArr, profile, insiderTxn, fmpMetrics] = await Promise.all([
+    const basePromises = [
       fetchChart(symbol),
       fetchFinnhubMetrics(symbol, env.FINNHUB_KEY),
       fetchFinnhubEarnings(symbol, env.FINNHUB_KEY),
       fetchFinnhubProfile(symbol, env.FINNHUB_KEY),
-      fetchInsiderTransactions(symbol),
-      fetchFMPKeyMetrics(symbol, env.FMP_KEY),
-    ]);
+    ];
+    if (!scanMode) {
+      basePromises.push(fetchInsiderTransactions(symbol));
+      basePromises.push(fetchFMPKeyMetrics(symbol, env.FMP_KEY));
+    }
+    const baseResults = await Promise.all(basePromises);
+    const [chart, metrics, earningsArr, profile] = baseResults;
+    const insiderTxn  = scanMode ? null : (baseResults[4] ?? null);
+    const fmpMetrics  = scanMode ? null : (baseResults[5] ?? null);
 
-    // Fetch EDGAR after chart so we have price
+    // Fetch EDGAR after chart so we have price (skip in scan mode — too slow)
     const edgarPrice = chart?.price ?? null;
-    const edgar = await fetchEdgarFundamentals(symbol, edgarPrice);
+    const edgar = scanMode ? null : await fetchEdgarFundamentals(symbol, edgarPrice);
 
     const m          = metrics?.metric || {};
     const hasChart   = chart && chart.closes.length >= 10;
