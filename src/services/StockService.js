@@ -440,7 +440,7 @@ export async function yahooChart(symbol, range = '1d', interval = '1d') {
 }
 
 export async function yahooNewsSearch(symbol) {
-  const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${symbol}&newsCount=8&enableNavLinks=false`;
+  const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${symbol}&newsCount=10&enableNavLinks=false`;
   return fetchProxy(url);
 }
 
@@ -838,7 +838,7 @@ export function parseAllData({ meta, yfFund, stats, ratings, target, earning, ne
   }
 
   const rawNews   = newsResp?.news || [];
-  const newsItems = rawNews.slice(0, 5).map(n => ({
+  const newsItems = rawNews.slice(0, 8).map(n => ({
     headline: n.title,
     url:      n.link,
     source:   n.publisher,
@@ -876,6 +876,9 @@ export async function fetchAllData(symbol, lite = false) {
     const chartRaw = await yahooChart(symbol, '1d', '1d');
     const meta = chartRaw?.chart?.result?.[0]?.meta;
     if (!meta || !meta.regularMarketPrice) throw new Error('no_data');
+
+    // Start news fetch immediately in parallel with fundamentals
+    const newsPromise = yahooNewsSearch(symbol).catch(() => null);
 
     let yfFund = null;
     let stats  = null;
@@ -939,7 +942,7 @@ export async function fetchAllData(symbol, lite = false) {
     }
 
     const [newsResp, finviz] = await Promise.all([
-      yahooNewsSearch(symbol).catch(() => null),
+      newsPromise,
       (!skipFund) ? fetchFinvizData(symbol).catch(() => null) : Promise.resolve(null),
     ]);
 
