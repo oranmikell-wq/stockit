@@ -44,13 +44,13 @@ function picksFromCache() {
   try {
     const raw = localStorage.getItem(PICKS_KEY);
     if (!raw) return null;
-    const { picks, ts } = JSON.parse(raw);
-    if (Date.now() - ts < PICKS_TTL) return picks;
+    const { picks, ts, scannedAt } = JSON.parse(raw);
+    if (Date.now() - ts < PICKS_TTL) return { picks, scannedAt: scannedAt ?? null };
     return null;
   } catch { return null; }
 }
-function picksToCache(picks) {
-  try { localStorage.setItem(PICKS_KEY, JSON.stringify({ picks, ts: Date.now() })); } catch {}
+function picksToCache(picks, scannedAt) {
+  try { localStorage.setItem(PICKS_KEY, JSON.stringify({ picks, ts: Date.now(), scannedAt: scannedAt ?? null })); } catch {}
 }
 
 // ── Worker fetch ──────────────────────────────────────────────────────────────
@@ -332,19 +332,24 @@ export async function renderTopPicks(container) {
   }
 
   try {
-    let picks = picksFromCache();
-    if (!picks) {
+    let picks, scannedAt = null;
+    const cached = picksFromCache();
+    if (cached) {
+      picks = cached.picks;
+      scannedAt = cached.scannedAt;
+    } else {
       try {
         const result = await fetchWorkerPicks();
         picks = result.picks;
-        setScannedAt(result.scannedAt);
-        if (picks?.length) picksToCache(picks);
+        scannedAt = result.scannedAt;
+        if (picks?.length) picksToCache(picks, scannedAt);
       } catch (e) {
         console.warn('[TopPicks] Worker unavailable, local fallback:', e.message);
         picks = await localFallback();
-        if (picks?.length) picksToCache(picks);
+        if (picks?.length) picksToCache(picks, null);
       }
     }
+    setScannedAt(scannedAt);
     topPicksData = picks;
     fillTbody(picks, tbody);
   } catch {
