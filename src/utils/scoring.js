@@ -12,7 +12,7 @@ export const FAMILY_WEIGHTS = {
 export const GROWTH_WEIGHTS    = { epsSurprise: 0.50, eps: 0.30, revenue: 0.20 };
 export const VALUATION_WEIGHTS = { peg: 0.50, fcf: 0.30, pe: 0.20 };
 export const QUALITY_WEIGHTS   = { operatingMargin: 0.35, insiderOwnership: 0.25, roe: 0.25, currentRatio: 0.15 };
-export const TECHNICAL_WEIGHTS = { ma200: 0.40, distFromHigh: 0.25, shortFloat: 0.20, rsi: 0.15 };
+export const TECHNICAL_WEIGHTS = { ma200: 0.40, distFromHigh: 0.25, macd: 0.20, rsi: 0.15 };
 
 // ── Sector Benchmarks ───────────────────────────────────
 export const SECTOR_PE = {
@@ -210,6 +210,25 @@ export function scoreShortFloat(pct) {
   return 5;
 }
 
+export function scoreMACD(macd, price) {
+  if (macd == null || price == null || price === 0) return null;
+  const pct = (macd / price) * 100;
+  if (pct >=  3) return 90;
+  if (pct >=  1) return 75;
+  if (pct >=  0) return 60;
+  if (pct >= -1) return 40;
+  if (pct >= -3) return 25;
+  return 10;
+}
+
+export function scoreInsiderTransactions(data) {
+  if (!data) return null;
+  const { buys, sells } = data;
+  const total = buys + sells;
+  if (total === 0) return 50; // no activity = neutral
+  return Math.round(10 + (buys / total) * 80); // 100% buys→90, 100% sells→10
+}
+
 // RSI only (no MACD)
 export function scoreRSI(rsi) {
   if (rsi == null) return null;
@@ -346,9 +365,10 @@ export function calcFamilyValuation(data, sectorKey) {
 }
 
 export function calcFamilyQuality(data, sectorKey) {
+  const insiderScore = scoreInsiderTransactions(data.insiderTxn) ?? scoreInsiderOwnership(data.insiderOwnership);
   return weightedAvg([
     { score: scoreOperatingMargin(data.operatingMargin, sectorKey), weight: QUALITY_WEIGHTS.operatingMargin  },
-    { score: scoreInsiderOwnership(data.insiderOwnership),          weight: QUALITY_WEIGHTS.insiderOwnership },
+    { score: insiderScore,                                           weight: QUALITY_WEIGHTS.insiderOwnership },
     { score: scoreROE(data.roe),                                    weight: QUALITY_WEIGHTS.roe              },
     { score: scoreCurrentRatio(data.currentRatio),                  weight: QUALITY_WEIGHTS.currentRatio     },
   ]);
@@ -357,12 +377,12 @@ export function calcFamilyQuality(data, sectorKey) {
 export function calcFamilyTechnical(data, rsi, highs, ath, indicators) {
   const ma200score = scoreMA200Position(data.price, indicators?.ma200);
   const distHigh   = scoreDistFromHigh(data.price, data.high52w);
-  const shortFlt   = scoreShortFloat(data.shortFloat);
+  const macdScore  = scoreMACD(calcMACD(indicators?.closes ?? []), data.price);
   const rsiScore   = scoreRSI(rsi);
   return weightedAvg([
     { score: ma200score, weight: TECHNICAL_WEIGHTS.ma200        },
     { score: distHigh,   weight: TECHNICAL_WEIGHTS.distFromHigh },
-    { score: shortFlt,   weight: TECHNICAL_WEIGHTS.shortFloat   },
+    { score: macdScore,  weight: TECHNICAL_WEIGHTS.macd         },
     { score: rsiScore,   weight: TECHNICAL_WEIGHTS.rsi          },
   ]);
 }
@@ -382,7 +402,7 @@ export function calcScore(data, history5y = [], indicators = {}) {
   const familyGrowth    = calcFamilyGrowth(data);
   const familyValuation = calcFamilyValuation(data, sectorKey);
   const familyQuality   = calcFamilyQuality(data, sectorKey);
-  const familyTechnical = calcFamilyTechnical(data, rsi, highs, ath, indicators);
+  const familyTechnical = calcFamilyTechnical(data, rsi, highs, ath, { ...indicators, closes });
 
   // Weighted average — only include non-null families
   let totalWeight = 0, weightedSum = 0;
