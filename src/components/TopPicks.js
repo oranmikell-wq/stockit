@@ -328,7 +328,8 @@ export async function renderTopPicks(container) {
     if (!scannedEl || !isoStr) return;
     const d = new Date(isoStr);
     if (isNaN(d)) return;
-    scannedEl.textContent = `עודכן: ${d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+    const locale = document.documentElement.lang === 'en' ? 'en-US' : 'he-IL';
+    scannedEl.textContent = `${t('lastUpdated')} ${d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })} ${d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`;
   }
 
   try {
