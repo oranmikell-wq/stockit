@@ -241,6 +241,23 @@ export default {
       }
     }
 
+    // ── /popular — top 10 by daily volume from all-scores ───────────────────
+    if (url.pathname === '/popular') {
+      try {
+        const allScores = await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' }) ?? {};
+        const entries = Object.values(allScores).filter(r => r.volume != null && r.price != null);
+        entries.sort((a, b) => b.volume - a.volume);
+        const picks = entries.slice(0, 10);
+        return new Response(JSON.stringify({ picks, scannedAt: picks[0]?.scannedAt ?? null }), {
+          headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=1800' },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // ── /scores?symbols=AAPL,MSFT,TSLA batch endpoint ───────────────────────
     if (url.pathname === '/scores') {
       const raw = url.searchParams.get('symbols') || '';
@@ -621,6 +638,8 @@ async function scoreStock(symbol, env, { scanMode = false } = {}) {
 
       // Market data
       marketCap,
+      volume:    chart?.volume    ?? null,
+      avgVolume: chart?.avgVolume ?? null,
 
       // Fundamentals from Finnhub metrics
       pe:              m.peTTM ?? null,
@@ -939,11 +958,13 @@ async function fetchChart(symbol) {
       closes,
       timestamps,
       price,
-      name:     meta.longName ?? meta.shortName ?? symbol,
+      name:      meta.longName ?? meta.shortName ?? symbol,
       changePct,
-      high52:   meta.fiftyTwoWeekHigh ?? null,
-      low52:    meta.fiftyTwoWeekLow  ?? null,
+      high52:    meta.fiftyTwoWeekHigh ?? null,
+      low52:     meta.fiftyTwoWeekLow  ?? null,
       ath,
+      volume:    meta.regularMarketVolume ?? null,
+      avgVolume: meta.averageDailyVolume3Month ?? meta.averageDailyVolume10Day ?? null,
     };
   } catch { return null; }
 }

@@ -135,16 +135,28 @@ async function loadMag7Picks() {
   return _mag7Cache;
 }
 
-// ── Popular picks ─────────────────────────────────────────────────────────────
-const POPULAR = ['AAPL','TSLA','NVDA','AMZN','META','GOOGL','MSFT','NFLX','AMD','PLTR'];
-const POPULAR_TTL = 60 * 60 * 1000;
+// ── Popular picks (top 10 by daily volume from worker) ────────────────────────
+const POPULAR_WORKER_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/popular';
+const POPULAR_TTL = 30 * 60 * 1000; // 30 minutes
 let _popularCache = null;
 let _popularCacheTs = 0;
 
 async function loadPopularPicks() {
   if (_popularCache && Date.now() - _popularCacheTs < POPULAR_TTL) return _popularCache;
+  try {
+    const res = await fetch(POPULAR_WORKER_URL, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (json?.picks?.length) {
+      _popularCacheTs = Date.now();
+      _popularCache = json.picks;
+      return _popularCache;
+    }
+  } catch {}
+  // Fallback: static list if worker unavailable or volume not yet scanned
+  const FALLBACK = ['AAPL','TSLA','NVDA','AMZN','META','GOOGL','MSFT','NFLX','AMD','PLTR'];
   _popularCacheTs = Date.now();
-  _popularCache = await loadSymbolPicks(POPULAR);
+  _popularCache = await loadSymbolPicks(FALLBACK);
   return _popularCache;
 }
 
