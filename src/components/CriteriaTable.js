@@ -2,18 +2,25 @@
 
 import { t } from '../utils/i18n.js?v=6';
 
+// Format growth %, capping extreme values from near-zero base effects
+function fmtGrowth(pct) {
+  if (pct > 500)  return `>500% (low base)`;
+  if (pct < -100) return `<-100%`;
+  return `${pct.toFixed(1)}%`;
+}
+
 export function renderCriteriaTable(scored, data) {
   const container = document.getElementById('criteria-table');
   if (!container) return;
 
   const CRITERIA = [
-    { key: 'eps',           rawData: () => data.epsGrowth != null ? [`${t('criteriaEpsGrowthLabel')}: ${data.epsGrowth.toFixed(1)}%`] : [] },
+    { key: 'eps',           rawData: () => data.epsGrowth != null ? [`${t('criteriaEpsGrowthLabel')}: ${fmtGrowth(data.epsGrowth)}`] : [] },
     { key: 'multiples',     rawData: () => [
         data.pe != null ? (data.pe > 0 ? `P/E: ${data.pe.toFixed(1)}` : 'P/E: N/A') : null,
         data.pb && data.pb > 0 ? `P/B: ${data.pb.toFixed(1)}` : null,
         data.ps && data.ps > 0 ? `P/S: ${data.ps.toFixed(1)}` : null,
       ].filter(Boolean) },
-    { key: 'revenue',       rawData: () => data.revenueGrowth != null ? [`${t('criteriaRevenueGrowthLabel')}: ${data.revenueGrowth.toFixed(1)}%`] : [] },
+    { key: 'revenue',       rawData: () => data.revenueGrowth != null ? [`${t('criteriaRevenueGrowthLabel')}: ${fmtGrowth(data.revenueGrowth)}`] : [] },
     { key: 'analysts',      rawData: () => {
         if (data.analystMean != null) {
           const labelKeys = ['', 'analystStrongBuy', 'analystBuy', 'analystHold', 'analystUnderperform', 'analystSell'];

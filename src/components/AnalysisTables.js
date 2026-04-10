@@ -3,6 +3,12 @@
 // Each section header shows the family weight and family score (0–100).
 
 import { t } from '../utils/i18n.js?v=6';
+
+function fmtGrowth(pct) {
+  if (pct > 500)  return `>500% (low base)`;
+  if (pct < -100) return `<-100%`;
+  return `${pct.toFixed(1)}%`;
+}
 import { calcSMA, yahooChart } from '../services/StockService.js';
 import { getSectorKey, FAMILY_WEIGHTS, GROWTH_WEIGHTS, VALUATION_WEIGHTS, QUALITY_WEIGHTS, TECHNICAL_WEIGHTS } from '../utils/scoring.js';
 import { initInfoButtons } from './InfoPopup.js';
@@ -120,9 +126,9 @@ function buildContextualDesc(key, score, dataItems, data) {
 function rawDataFor(key, scored, data) {
   switch (key) {
     case 'eps':
-      return data.epsGrowth != null ? [`${t('criteriaEpsGrowthLabel')}: ${data.epsGrowth.toFixed(1)}%`] : [];
+      return data.epsGrowth != null ? [`${t('criteriaEpsGrowthLabel')}: ${fmtGrowth(data.epsGrowth)}`] : [];
     case 'revenue':
-      return data.revenueGrowth != null ? [`${t('criteriaRevenueGrowthLabel')}: ${data.revenueGrowth.toFixed(1)}%`] : [];
+      return data.revenueGrowth != null ? [`${t('criteriaRevenueGrowthLabel')}: ${fmtGrowth(data.revenueGrowth)}`] : [];
     case 'epsSurprise':
       return data.epsSurprise != null ? [`Surprise: ${data.epsSurprise > 0 ? '+' : ''}${data.epsSurprise.toFixed(1)}%`] : [];
     case 'peg':
@@ -143,7 +149,7 @@ function rawDataFor(key, scored, data) {
         data.ps && data.ps > 0 ? `P/S: ${data.ps.toFixed(1)}` : null,
       ].filter(Boolean);
     case 'operatingMargin':
-      return data.operatingMargin != null ? [`Margin: ${data.operatingMargin.toFixed(1)}%`] : [];
+      return data.operatingMargin != null ? [`Margin: ${Math.min(data.operatingMargin, 100).toFixed(1)}%`] : [];
     case 'insiderOwnership':
       return data.insiderOwnership != null ? [`Insider: ${data.insiderOwnership.toFixed(1)}%`] : [];
     case 'roe':

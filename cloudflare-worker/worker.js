@@ -568,7 +568,9 @@ async function scoreStock(symbol, env, { scanMode = false } = {}) {
     const revenueGrowthFinal  = edgar?.revenueGrowth  ?? m.revenueGrowthTTMYoy  ?? null;
     const debtEquityFinal     = edgar?.debtEquity     ?? (m['longTermDebt/equityAnnual'] != null ? m['longTermDebt/equityAnnual'] * 100 : null);
     const fcfFinal            = edgar?.fcf            ?? syntheticFCF;
-    const opMarginFinal       = edgar?.operatingMargin ?? m.operatingMarginTTM   ?? null;
+    // Normalize to percent: EDGAR returns decimal (0.32), Finnhub returns percent (32)
+    const opMarginFinal       = edgar?.operatingMargin != null ? edgar.operatingMargin * 100
+                              : m.operatingMarginTTM ?? null;
 
     // ── PEG — FMP first (most accurate), Finnhub second, synthetic fallback ──
     const peFinal = m.peTTM ?? null;
@@ -651,7 +653,7 @@ async function scoreStock(symbol, env, { scanMode = false } = {}) {
       debtEquity:      debtEquityFinal,
       roe:             m.roeTTM ?? null,
       currentRatio:    m.currentRatioAnnual ?? null,
-      operatingMargin: opMarginFinal != null ? opMarginFinal * 100 : null,
+      operatingMargin: opMarginFinal, // already in %
       insiderOwnership,
       insiderTxn,
       shortFloat,
