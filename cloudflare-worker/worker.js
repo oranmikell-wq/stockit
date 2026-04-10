@@ -574,8 +574,10 @@ async function scoreStock(symbol, env, { scanMode = false } = {}) {
     const debtEquityFinal     = edgar?.debtEquity     ?? (m['longTermDebt/equityAnnual'] != null ? m['longTermDebt/equityAnnual'] * 100 : null);
     const fcfFinal            = edgar?.fcf            ?? syntheticFCF;
     // Normalize to percent: EDGAR returns decimal (0.32), Finnhub returns percent (32)
-    const opMarginFinal       = edgar?.operatingMargin != null ? edgar.operatingMargin * 100
+    // Cap at 100 — operating margin physically cannot exceed 100%
+    const opMarginRaw         = edgar?.operatingMargin != null ? edgar.operatingMargin * 100
                               : m.operatingMarginTTM ?? null;
+    const opMarginFinal       = opMarginRaw != null ? Math.min(opMarginRaw, 100) : null;
 
     // ── PEG — FMP first (most accurate), Finnhub second, synthetic fallback ──
     const peFinal = m.peTTM ?? null;
