@@ -563,9 +563,14 @@ async function scoreStock(symbol, env, { scanMode = false } = {}) {
     // ── Sector key from Finnhub profile (same getSectorKey logic as scoring.js)
     const sectorKey = getSectorKey(profile?.finnhubIndustry ?? null);
 
-    // Prefer Finnhub 3Y CAGR (more stable than single-year YoY), fall back to TTM YoY
-    const epsGrowthFinal      = m.epsGrowth3Y      ?? edgar?.epsGrowth     ?? m.epsGrowthTTMYoy      ?? null;
-    const revenueGrowthFinal  = m.revenueGrowth3Y  ?? edgar?.revenueGrowth ?? m.revenueGrowthTTMYoy  ?? null;
+    // Finnhub returns growth metrics already in % (e.g. 33 = 33%), EDGAR returns decimal (0.33)
+    // Normalize everything to % so scoring thresholds (-30..40) work correctly
+    const epsGrowthFinal      = m.epsGrowth3Y     != null ? m.epsGrowth3Y
+                              : edgar?.epsGrowth   != null ? edgar.epsGrowth * 100
+                              : m.epsGrowthTTMYoy  ?? null;
+    const revenueGrowthFinal  = m.revenueGrowth3Y    != null ? m.revenueGrowth3Y
+                              : edgar?.revenueGrowth  != null ? edgar.revenueGrowth * 100
+                              : m.revenueGrowthTTMYoy ?? null;
     const debtEquityFinal     = edgar?.debtEquity     ?? (m['longTermDebt/equityAnnual'] != null ? m['longTermDebt/equityAnnual'] * 100 : null);
     const fcfFinal            = edgar?.fcf            ?? syntheticFCF;
     // Normalize to percent: EDGAR returns decimal (0.32), Finnhub returns percent (32)
@@ -657,8 +662,8 @@ async function scoreStock(symbol, env, { scanMode = false } = {}) {
       insiderOwnership,
       insiderTxn,
       shortFloat,
-      epsGrowth:       epsGrowthFinal != null ? epsGrowthFinal * 100 : null,
-      revenueGrowth:   revenueGrowthFinal != null ? revenueGrowthFinal * 100 : null,
+      epsGrowth:       epsGrowthFinal,    // already in %
+      revenueGrowth:   revenueGrowthFinal, // already in %
       epsSurprise,
       fcf:             fcfFinal,
 
