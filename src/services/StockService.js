@@ -283,7 +283,7 @@ async function fetchFinnhubFundamentals(symbol) {
   const divYield = m.dividendYieldIndicatedAnnual != null ? m.dividendYieldIndicatedAnnual / 100 : null;
   const marketCap = profileRaw?.marketCapitalization != null ? profileRaw.marketCapitalization * 1e6 : null;
   const epsGrowth = m.epsGrowth3Y ?? null; // epsBasicExclExtraItemsTTM is an absolute EPS value, not a growth rate
-  const revGrowth = m.revenueGrowthTTMYoy ?? m.revenueGrowth3Y ?? null;
+  const revGrowth = m.revenueGrowth3Y ?? m.revenueGrowthTTMYoy ?? null;
   // Note: Finnhub metric keys use '/' not '_' as separator
   const debtEq    = m['longTermDebt/equityAnnual'] ?? m['totalDebt/totalEquityAnnual'] ?? null;
   const instPct      = m.institutionalOwnershipPercentage != null ? m.institutionalOwnershipPercentage / 100 : null;

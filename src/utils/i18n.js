@@ -458,8 +458,8 @@ export const TRANSLATIONS = {
     compareDebtEquity: 'חוב/הון',
     compareScore: 'ציון',
     // Criteria raw data labels
-    criteriaEpsGrowthLabel: 'צמיחת EPS',
-    criteriaRevenueGrowthLabel: 'צמיחת הכנסות',
+    criteriaEpsGrowthLabel: 'צמיחת EPS (3Y CAGR)',
+    criteriaRevenueGrowthLabel: 'צמיחת הכנסות (3Y CAGR)',
     criteriaDailyChange: 'שינוי יומי',
     criteria52wHigh: 'שיא כל הזמנים (ATH)',
     // Movers error
@@ -962,8 +962,8 @@ export const TRANSLATIONS = {
     compareDebtEquity: 'Debt/Equity',
     compareScore: 'Score',
     // Criteria raw data labels
-    criteriaEpsGrowthLabel: 'EPS Growth',
-    criteriaRevenueGrowthLabel: 'Revenue Growth',
+    criteriaEpsGrowthLabel: 'EPS Growth (3Y CAGR)',
+    criteriaRevenueGrowthLabel: 'Revenue Growth (3Y CAGR)',
     criteriaDailyChange: 'Daily Change',
     criteria52wHigh: 'ATH',
     // Movers error

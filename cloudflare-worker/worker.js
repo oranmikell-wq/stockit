@@ -563,9 +563,9 @@ async function scoreStock(symbol, env, { scanMode = false } = {}) {
     // ── Sector key from Finnhub profile (same getSectorKey logic as scoring.js)
     const sectorKey = getSectorKey(profile?.finnhubIndustry ?? null);
 
-    // EDGAR overrides Finnhub where available (more accurate annual data)
-    const epsGrowthFinal      = edgar?.epsGrowth      ?? m.epsGrowthTTMYoy      ?? null;
-    const revenueGrowthFinal  = edgar?.revenueGrowth  ?? m.revenueGrowthTTMYoy  ?? null;
+    // Prefer Finnhub 3Y CAGR (more stable than single-year YoY), fall back to TTM YoY
+    const epsGrowthFinal      = m.epsGrowth3Y      ?? edgar?.epsGrowth     ?? m.epsGrowthTTMYoy      ?? null;
+    const revenueGrowthFinal  = m.revenueGrowth3Y  ?? edgar?.revenueGrowth ?? m.revenueGrowthTTMYoy  ?? null;
     const debtEquityFinal     = edgar?.debtEquity     ?? (m['longTermDebt/equityAnnual'] != null ? m['longTermDebt/equityAnnual'] * 100 : null);
     const fcfFinal            = edgar?.fcf            ?? syntheticFCF;
     // Normalize to percent: EDGAR returns decimal (0.32), Finnhub returns percent (32)
