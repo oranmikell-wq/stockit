@@ -453,9 +453,11 @@ export async function fetchIndexQuote(symbol) {
     if (!meta) return null;
     const price = meta.regularMarketPrice ?? null;
     const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? null;
-    const changePct = (price != null && prevClose != null && prevClose !== 0)
-      ? ((price - prevClose) / prevClose) * 100
-      : null;
+    const changePct = meta.regularMarketChangePercent != null
+      ? meta.regularMarketChangePercent
+      : (price != null && prevClose != null && prevClose !== 0)
+        ? ((price - prevClose) / prevClose) * 100
+        : null;
     return { price, changePct };
   } catch {
     return null;
@@ -730,7 +732,12 @@ export function parseAllData({ meta, yfFund, stats, ratings, target, earning, ne
   const price     = meta.regularMarketPrice    ?? null;
   const prevClose = meta.chartPreviousClose    ?? meta.regularMarketPreviousClose ?? null;
   const change    = (price != null && prevClose) ? price - prevClose : null;
-  const changePct = (change != null && prevClose) ? (change / prevClose) * 100 : null;
+  // Prefer Yahoo's own regularMarketChangePercent — it correctly reflects the last
+  // session's change even when the market is closed (weekends/holidays).
+  // Fall back to computed value only when Yahoo doesn't provide it.
+  const changePct = meta.regularMarketChangePercent != null
+    ? meta.regularMarketChangePercent
+    : (change != null && prevClose) ? (change / prevClose) * 100 : null;
   const currency  = meta.currency    ?? 'USD';
   const exchange  = meta.exchangeName ?? meta.fullExchangeName ?? null;
 

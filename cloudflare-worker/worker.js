@@ -949,11 +949,14 @@ async function fetchChart(symbol) {
         timestamps.push(rawTimestamps[i] ?? null);
       }
     }
-    const price   = meta.regularMarketPrice ?? (closes.length ? closes[closes.length - 1] : null);
+    const price     = meta.regularMarketPrice ?? (closes.length ? closes[closes.length - 1] : null);
     const prevClose = closes.length >= 2 ? closes[closes.length - 2] : null;
-    const changePct = price != null && prevClose != null && prevClose !== 0
-      ? ((price - prevClose) / prevClose) * 100
-      : null;
+    // Use Yahoo's own changePercent — correctly reflects last session's change even when market is closed
+    const changePct = meta.regularMarketChangePercent != null
+      ? meta.regularMarketChangePercent
+      : price != null && prevClose != null && prevClose !== 0
+        ? ((price - prevClose) / prevClose) * 100
+        : null;
     // ATH = max close over 5 years
     const ath = closes.length ? Math.max(...closes) : null;
     return {
