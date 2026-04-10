@@ -4,9 +4,8 @@ import { t } from '../utils/i18n.js?v=6';
 
 // Format growth %, capping extreme values from near-zero base effects
 function fmtGrowth(pct) {
-  if (pct > 500)  return `>500% (low base)`;
-  if (pct < -100) return `<-100%`;
-  return `${pct.toFixed(1)}%`;
+  const clamped = Math.max(-500, Math.min(500, pct));
+  return `${clamped.toFixed(1)}%`;
 }
 
 export function renderCriteriaTable(scored, data) {
