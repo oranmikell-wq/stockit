@@ -571,7 +571,8 @@ async function scoreStock(symbol, env, { scanMode = false } = {}) {
     const revenueGrowthFinal  = m.revenueGrowth3Y    != null ? m.revenueGrowth3Y
                               : edgar?.revenueGrowth  != null ? edgar.revenueGrowth * 100
                               : m.revenueGrowthTTMYoy ?? null;
-    const debtEquityFinal     = edgar?.debtEquity     ?? (m['longTermDebt/equityAnnual'] != null ? m['longTermDebt/equityAnnual'] * 100 : null);
+    // scoreDebt expects ratio (e.g. 0.66), not percent — no *100
+    const debtEquityFinal     = edgar?.debtEquity     ?? m['longTermDebt/equityAnnual'] ?? m['totalDebt/totalEquityAnnual'] ?? null;
     const fcfFinal            = edgar?.fcf            ?? syntheticFCF;
     // EDGAR returns decimal (0.32), Finnhub returns percent (32)
     // Discard EDGAR value if > 80% — means wrong revenue concept was fetched
@@ -924,7 +925,7 @@ async function fetchEdgarFundamentals(symbol, price) {
     const revenueGrowth = (revActual && revPrevActual && revPrevActual !== 0)
       ? (revActual - revPrevActual) / Math.abs(revPrevActual) : null; // decimal
     const debtEquity = (debt != null && equity && equity !== 0)
-      ? (debt / equity) * 100 : null; // same format as Finnhub (x100)
+      ? debt / equity : null; // ratio (e.g. 0.66)
     const fcf = (operatingCF != null && capex != null) ? operatingCF - capex
               : operatingCF != null ? operatingCF : null;
     const operatingMargin = (operatingIncome != null && revActual && revActual !== 0)
