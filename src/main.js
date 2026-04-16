@@ -574,6 +574,12 @@ function buildDataFromWorker(ws, liveQuote, newsItems) {
     epsGrowth:       ws.epsGrowth,
     revenueGrowth:   ws.revenueGrowth,
     epsSurprise:     ws.epsSurprise,
+    // New 5-indicator raw values
+    epsGrowthFwd:    ws.epsGrowthFwd ?? null,
+    forwardPE:       ws.forwardPE ?? null,
+    fcfYield:        ws.fcfYield ?? null,
+    debtToEquity:    ws.debtToEquity ?? null,
+    rsi:             ws.rsi ?? null,
     analystScore:    ws.analystScore ?? null,
     analystMean:     ws.analystMean ?? null,
     analystCount:    ws.analystCount ?? null,
@@ -589,6 +595,7 @@ function buildDataFromWorker(ws, liveQuote, newsItems) {
 function buildScoredFromWorker(ws) {
   return {
     score:    ws.score,
+    bulls:    ws.bulls ?? null,
     rating:   ws.rating,
     isPartial: false,
     criteria: ws.criteria ?? {},
@@ -724,10 +731,23 @@ async function loadResults(symbol, isRefresh = false) {
       // If Worker has a score (even partial), use it as the authoritative score + families
       if (workerScore?.score != null) {
         scored.score  = workerScore.score;
+        scored.bulls  = workerScore.bulls ?? null;
         scored.rating = workerScore.rating;
         if (workerScore.families) {
           scored.families = workerScore.families;
         }
+        if (workerScore.criteria) {
+          scored.criteria = workerScore.criteria;
+        }
+      }
+
+      // Merge new raw indicator fields from worker score into data for CriteriaTable
+      if (workerScore) {
+        data.epsGrowthFwd = workerScore.epsGrowthFwd ?? null;
+        data.forwardPE    = workerScore.forwardPE    ?? null;
+        data.fcfYield     = workerScore.fcfYield     ?? null;
+        data.debtToEquity = workerScore.debtToEquity ?? null;
+        data.rsi          = workerScore.rsi          ?? null;
       }
 
       currentStock = { ...data, ...scored };
@@ -829,6 +849,19 @@ function renderResults(data, scored) {
   if (gaugeScore) gaugeScore.textContent = scored.score ?? '--';
   if (gaugeLabel) { gaugeLabel.textContent = t(scored.rating); gaugeLabel.className = `gauge-label badge-${scored.rating}`; }
   if (partialWarn) partialWarn.classList.toggle('hidden', !scored.isPartial);
+
+  // Bull rating display
+  const bullRatingEl = document.getElementById('bull-rating');
+  if (bullRatingEl) {
+    const bulls = scored.bulls ?? null;
+    if (bulls != null) {
+      bullRatingEl.textContent = '🐂'.repeat(bulls);
+      bullRatingEl.title = `${t('bullRating')}: ${bulls}/5`;
+      bullRatingEl.classList.remove('hidden');
+    } else {
+      bullRatingEl.classList.add('hidden');
+    }
+  }
 
   const fmt = (n, dec = 2) => { const num = parseFloat(n); return !isNaN(num) ? num.toFixed(dec) : t('noData'); };
   const currency = data.currency || 'USD';

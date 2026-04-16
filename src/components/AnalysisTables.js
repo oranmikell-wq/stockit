@@ -9,7 +9,7 @@ function fmtGrowth(pct) {
   return `${clamped.toFixed(1)}%`;
 }
 import { calcSMA, yahooChart } from '../services/StockService.js';
-import { getSectorKey, FAMILY_WEIGHTS, GROWTH_WEIGHTS, VALUATION_WEIGHTS, QUALITY_WEIGHTS, TECHNICAL_WEIGHTS } from '../utils/scoring.js';
+import { getSectorKey } from '../utils/scoring.js';
 import { initInfoButtons } from './InfoPopup.js';
 
 // ── Sector averages (P/E and P/S) for checklist rows ─────────────

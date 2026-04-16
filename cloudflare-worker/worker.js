@@ -477,245 +477,150 @@ async function runRollingScan(env) {
 // ── Score a single stock — uses exact scoring.js formula ─────────────────────
 async function scoreStock(symbol, env, { scanMode = false } = {}) {
   try {
-    const basePromises = [
-      fetchChart(symbol),
-      fetchFinnhubMetrics(symbol, env.FINNHUB_KEY),
-      fetchFinnhubEarnings(symbol, env.FINNHUB_KEY),
-      fetchFinnhubProfile(symbol, env.FINNHUB_KEY),
-    ];
-    if (!scanMode) {
-      basePromises.push(fetchInsiderTransactions(symbol));
-      basePromises.push(fetchFMPKeyMetrics(symbol, env.FMP_KEY));
-    }
-    const baseResults = await Promise.all(basePromises);
-    const [chart, metrics, earningsArr, profile] = baseResults;
-    const insiderTxn  = scanMode ? null : (baseResults[4] ?? null);
-    const fmpMetrics  = scanMode ? null : (baseResults[5] ?? null);
+    const [chart, dailyCloses, metrics, profile] = await Promise.all([
+      fetchChart(symbol),                          // 5Y weekly — price, EPS, chart
+      fetchDailyChart(symbol),                     // 3mo daily — RSI-14
+      fetchFinnhubMetrics(symbol, env.FINNHUB_KEY),// D/E, FCF per share
+      fetchFinnhubProfile(symbol, env.FINNHUB_KEY),// sector
+    ]);
 
-    // Fetch EDGAR after chart so we have price (skip in scan mode — too slow)
-    const edgarPrice = chart?.price ?? null;
-    const edgar = scanMode ? null : await fetchEdgarFundamentals(symbol, edgarPrice);
+    if (!chart?.price) return null;
 
-    const m          = metrics?.metric || {};
-    const hasChart   = chart && chart.closes.length >= 10;
-    const hasFinnhub = metrics != null;
-    if (!hasChart && !hasFinnhub) return null;
+    const price     = chart.price;
+    const high52w   = chart.high52   ?? null;
+    const low52w    = chart.low52    ?? null;
+    const ath       = chart.ath      ?? null;
+    const marketCap = chart.marketCap ?? null;
+    const volume    = chart.volume   ?? null;
+    const avgVolume = chart.avgVolume ?? null;
 
-    // ── Raw fields ────────────────────────────────────────────────
-    const price      = chart?.price     ?? null;
-    const name       = chart?.name      ?? symbol;
-    const changePct  = chart?.changePct ?? null;
-    const high52w    = chart?.high52    ?? null;
-    const low52w     = chart?.low52     ?? null;
-    const marketCapM = m.marketCapitalization ?? null;          // millions USD
-    const marketCap  = marketCapM != null ? marketCapM * 1e6 : null; // full USD
-
-    // ── EPS Surprise (from most recent quarterly earnings) ────────
-    const latestEarning = earningsArr?.[0];
-    let epsSurprise = null;
-    if (latestEarning?.actual != null && latestEarning?.estimate != null && latestEarning.estimate !== 0) {
-      epsSurprise = ((latestEarning.actual - latestEarning.estimate) / Math.abs(latestEarning.estimate)) * 100;
-    }
-
-    // ── FCF from pfcfShareTTM (already in metrics — no extra call needed) ─
-    // pfcfShareTTM = Price / FCF-per-share  →  FCF-total = MarketCap / pfcfShareTTM
-    const pfcf = m.pfcfShareTTM ?? null;
-    const syntheticFCF = (pfcf != null && pfcf > 0 && marketCap != null) ? marketCap / pfcf : null;
-
-    // ── Short Float % — Finnhub shortRatioTTM as rough proxy ────────────────
-    let shortFloat = null;
-    if (m.shortRatioTTM != null && m.shortRatioTTM > 0) {
-      shortFloat = Math.min(m.shortRatioTTM * 2, 30);
-    }
-
-    // ── Insider Ownership % — Finnhub fallback ────────────────────────────────
-    const insiderOwnership = m.insiderOwnershipPercentage ?? null;
-
-    // ── Compute MA200 and RSI from Yahoo 5Y weekly closes ────────
-    // 200 trading days ÷ 5 days/week = 40 weeks → use last 40 weekly closes
-    const closes     = chart?.closes     ?? [];
-    const timestamps = chart?.timestamps ?? [];
-    let ma200      = null;
-    let aboveMA200 = null;
-    if (closes.length >= 20 && price != null) {
-      ma200 = calcSMA(closes, Math.min(40, closes.length));
-      if (ma200 != null) aboveMA200 = price >= ma200;
-    }
-    const rsi   = closes.length >= 15 ? calcRSI(closes) : null;
-    const highs = countHighs(closes, timestamps);
-
-    // ── Sector key from Finnhub profile (same getSectorKey logic as scoring.js)
     const sectorKey = getSectorKey(profile?.finnhubIndustry ?? null);
+    const m = metrics?.metric ?? {};
 
-    // Finnhub returns growth metrics already in % (e.g. 33 = 33%), EDGAR returns decimal (0.33)
-    // Normalize everything to % so scoring thresholds (-30..40) work correctly
-    const epsGrowthFinal      = m.epsGrowth3Y     != null ? m.epsGrowth3Y
-                              : edgar?.epsGrowth   != null ? edgar.epsGrowth * 100
-                              : m.epsGrowthTTMYoy  ?? null;
-    const revenueGrowthFinal  = m.revenueGrowth3Y    != null ? m.revenueGrowth3Y
-                              : edgar?.revenueGrowth  != null ? edgar.revenueGrowth * 100
-                              : m.revenueGrowthTTMYoy ?? null;
-    // scoreDebt expects ratio (e.g. 0.66), not percent — no *100
-    const debtEquityFinal     = edgar?.debtEquity     ?? m['longTermDebt/equityAnnual'] ?? m['totalDebt/totalEquityAnnual'] ?? null;
-    const fcfFinal            = edgar?.fcf            ?? syntheticFCF;
-    // EDGAR returns decimal (0.32), Finnhub returns percent (32)
-    // Discard EDGAR value if > 80% — means wrong revenue concept was fetched
-    const edgarOpMargin = (edgar?.operatingMargin != null && edgar.operatingMargin <= 0.8)
-                        ? edgar.operatingMargin * 100 : null;
-    const opMarginFinal = edgarOpMargin ?? m.operatingMarginTTM ?? null;
-
-    // ── PEG — FMP first (most accurate), Finnhub second, synthetic fallback ──
-    const peFinal = m.peTTM ?? null;
-    const pegFMP  = fmpMetrics?.peg ?? null;
-    const pegFinnhub = m.pegNormalizedAnnual ?? null;
-    const pegSynthetic = (peFinal != null && peFinal > 0 && epsGrowthFinal != null && epsGrowthFinal > 0)
-      ? peFinal / epsGrowthFinal
+    // ── Compute indicators (all from Finnhub metrics) ─────────────────────────
+    // EPS Growth YoY — epsGrowthTTMYoy is in %, e.g. 15 = 15%
+    const epsGrowthPct = m.epsGrowthTTMYoy ?? m.epsGrowth3Y ?? null;
+    // Convert to decimal; null if base year was likely negative (extreme values)
+    const epsGrowthFwd = (epsGrowthPct != null && Math.abs(epsGrowthPct) <= 200)
+      ? epsGrowthPct / 100
       : null;
-    const pegFinal = pegFMP ?? pegFinnhub ?? pegSynthetic;
 
-    // ── Growth family (35%) ───────────────────────────────────────
-    const familyGrowth = wAvg([
-      { score: scoreEPSSurprise(epsSurprise),         weight: GROWTH_WEIGHTS.epsSurprise },
-      { score: scoreEPS(epsGrowthFinal),              weight: GROWTH_WEIGHTS.eps         },
-      { score: scoreRevenue(revenueGrowthFinal),      weight: GROWTH_WEIGHTS.revenue     },
-    ]);
+    // P/E — trailing (forward not reliably available from free APIs)
+    const forwardPE = m.peTTM ?? null;
 
-    // ── Valuation family (25%) ────────────────────────────────────
-    const familyValuation = wAvg([
-      { score: scorePEG(pegFinal), weight: VALUATION_WEIGHTS.peg },
-      { score: scoreFCF(fcfFinal, marketCap),           weight: VALUATION_WEIGHTS.fcf },
-      { score: scorePEonly(m.peTTM ?? null, sectorKey), weight: VALUATION_WEIGHTS.pe  },
-    ]);
+    // FCF Yield — pfcShareTTM = P/FCF ratio, so FCF Yield = 1 / pfcShareTTM
+    const pfcRatio = m.pfcfShareTTM ?? null;
+    const fcfYield = (pfcRatio != null && pfcRatio > 0)
+      ? 1 / pfcRatio
+      : null;
 
-    // ── Quality family (20%) ──────────────────────────────────────
-    // insiderOwnership: prefer Form-4 transactions score; fallback to raw % if no EDGAR data
-    const insiderScore = scoreInsiderTransactions(insiderTxn) ?? scoreInsiderOwnership(insiderOwnership);
-    const familyQuality = wAvg([
-      { score: scoreOperatingMargin(opMarginFinal, sectorKey), weight: QUALITY_WEIGHTS.operatingMargin  },
-      { score: insiderScore,                                    weight: QUALITY_WEIGHTS.insiderOwnership },
-      { score: scoreROE(m.roeTTM ?? null),                     weight: QUALITY_WEIGHTS.roe              },
-      { score: scoreCurrentRatio(m.currentRatioAnnual ?? null),weight: QUALITY_WEIGHTS.currentRatio     },
-    ]);
+    // D/E — Finnhub returns as ratio (e.g. 0.66)
+    const debtEq = m['longTermDebt/equityAnnual'] ?? m['totalDebt/totalEquityAnnual'] ?? null;
 
-    // ── Technical family (20%) ────────────────────────────────────
-    const macdVal = calcMACD(closes);
-    const familyTechnical = wAvg([
-      { score: scoreMA200Position(price, ma200),   weight: TECHNICAL_WEIGHTS.ma200        },
-      { score: scoreDistFromHigh(price, high52w),  weight: TECHNICAL_WEIGHTS.distFromHigh },
-      { score: scoreMACD(macdVal, price),          weight: TECHNICAL_WEIGHTS.macd         },
-      { score: scoreRSI(rsi),                      weight: TECHNICAL_WEIGHTS.rsi          },
-    ]);
+    // RSI-14 from daily closes
+    const rsi = (dailyCloses && dailyCloses.length >= 15) ? calcRSI(dailyCloses) : null;
 
-    // ── Final weighted score — identical to scoring.js calcScore ─
-    let totalWeight = 0, weightedSum = 0;
-    const fw = FAMILY_WEIGHTS;
-    if (familyGrowth    != null) { weightedSum += familyGrowth    * fw.growth;    totalWeight += fw.growth;    }
-    if (familyValuation != null) { weightedSum += familyValuation * fw.valuation; totalWeight += fw.valuation; }
-    if (familyQuality   != null) { weightedSum += familyQuality   * fw.quality;   totalWeight += fw.quality;   }
-    if (familyTechnical != null) { weightedSum += familyTechnical * fw.technical; totalWeight += fw.technical; }
-
-    if (totalWeight === 0) return null;
-
-    const score  = Math.round(weightedSum / totalWeight);
-    const rating = score >= 66 ? 'buy' : score >= 41 ? 'wait' : 'sell';
-
-    return {
-      // Identity + score
-      symbol, name, score, rating,
-
-      // Live price (from chart)
-      price, changePct,
-      high52w,
-      low52w: chart?.low52 ?? null,
-      ath: chart?.ath ?? null,
-      aboveMA200,
-
-      // Market data
-      marketCap,
-      volume:    chart?.volume    ?? null,
-      avgVolume: chart?.avgVolume ?? null,
-
-      // Fundamentals from Finnhub metrics
-      pe:              m.peTTM ?? null,
-      pb:              m.pbAnnual ?? null,
-      ps:              m.psAnnual ?? null,
-      peg:             pegFinal,
-      beta:            m.beta ?? null,
-      dividend:        m.dividendYieldIndicatedAnnual != null ? m.dividendYieldIndicatedAnnual / 100 : null,
-      debtEquity:      debtEquityFinal,
-      roe:             m.roeTTM ?? null,
-      currentRatio:    m.currentRatioAnnual ?? null,
-      operatingMargin: opMarginFinal, // already in %
-      insiderOwnership,
-      insiderTxn,
-      shortFloat,
-      epsGrowth:       epsGrowthFinal,    // already in %
-      revenueGrowth:   revenueGrowthFinal, // already in %
-      epsSurprise,
-      fcf:             fcfFinal,
-
-      // Profile from Finnhub
-      sector:          profile?.finnhubIndustry ?? null,
-      sectorKey,
-      description:     profile?.description ?? null,
-      employees:       profile?.employeeTotal ?? null,
-      website:         profile?.weburl ?? null,
-      country:         profile?.country ?? null,
-      exchange:        profile?.exchange ?? null,
-
-      // Technicals (raw values)
-      rsi,
-      macd:            calcMACD(closes),
-      ma200,
-
-      // Criterion scores (0-100) - precomputed
-      criteria: {
-        eps:              scoreEPS(epsGrowthFinal),
-        revenue:          scoreRevenue(revenueGrowthFinal),
-        epsSurprise:      scoreEPSSurprise(epsSurprise),
-        peg:              scorePEG(pegFinal),
-        fcf:              scoreFCF(fcfFinal, marketCap),
-        peOnly:           scorePEonly(m.peTTM ?? null, sectorKey),
-        multiples:        scoreMultiples(m.peTTM ?? null, m.pbAnnual ?? null, m.psAnnual ?? null, sectorKey),
-        operatingMargin:  scoreOperatingMargin(opMarginFinal, sectorKey),
-        insiderOwnership: insiderScore,
-        roe:              scoreROE(m.roeTTM ?? null),
-        currentRatio:     scoreCurrentRatio(m.currentRatioAnnual ?? null),
-        ma200:            scoreMA200Position(price, ma200),
-        distFromHigh:     scoreDistFromHigh(price, high52w),
-        shortFloat:       scoreShortFloat(shortFloat),  // kept for display; not in family
-        macdScore:        scoreMACD(macdVal, price),
-        rsiScore:         scoreRSI(rsi),
-        debt:             scoreDebt(debtEquityFinal, sectorKey),
-        institutional:    null,
-        analysts:         null,
-        momentum:         scoreMomentum(changePct, price, high52w, low52w),
-        technical:        null,
-        ath:              scoreATH(price, high52w, chart?.ath ?? null),
-        highs:            scoreHighs(highs),
-      },
-
-      // Family scores
-      families: {
-        growth:    familyGrowth    != null ? Math.round(familyGrowth)    : null,
-        valuation: familyValuation != null ? Math.round(familyValuation) : null,
-        quality:   familyQuality   != null ? Math.round(familyQuality)   : null,
-        technical: familyTechnical != null ? Math.round(familyTechnical) : null,
-      },
-
-      // Technicals object
-      technicals: {
-        rsi,
-        macd:     calcMACD(closes),
-        athPrice: chart?.ath ?? null,
-        highs,
-      },
+    // ── Score each indicator ──────────────────────────────────────
+    const scores = {
+      epsGrowth:  scoreEpsGrowthFwd(epsGrowthFwd, sectorKey),
+      forwardPE:  scoreForwardPE(forwardPE, sectorKey),
+      fcfYield:   scoreFCFYield(fcfYield),
+      debtEquity: scoreDebtEquityNew(debtEq, sectorKey),
+      rsi:        scoreRSINew(rsi),
     };
 
+    // ── Weighted average (skip nulls, redistribute weights) ───────
+    const score = wAvg([
+      { score: scores.epsGrowth,  weight: WEIGHTS.epsGrowth  },
+      { score: scores.forwardPE,  weight: WEIGHTS.forwardPE  },
+      { score: scores.fcfYield,   weight: WEIGHTS.fcfYield   },
+      { score: scores.debtEquity, weight: WEIGHTS.debtEquity },
+      { score: scores.rsi,        weight: WEIGHTS.rsi        },
+    ]);
+
+    if (score == null) return null;
+
+    const finalScore = Math.round(score);
+    const bulls = finalScore >= 81 ? 5 : finalScore >= 61 ? 4 : finalScore >= 41 ? 3 : finalScore >= 21 ? 2 : 1;
+    const rating = finalScore >= 66 ? 'buy' : finalScore >= 41 ? 'wait' : 'sell';
+
+    // ── MA200 for display ─────────────────────────────────────────
+    const closes = chart.closes ?? [];
+    let aboveMA200 = null;
+    if (closes.length >= 20 && price != null) {
+      const ma200 = calcSMA(closes, Math.min(40, closes.length));
+      if (ma200 != null) aboveMA200 = price >= ma200;
+    }
+
+    return {
+      symbol,
+      name: chart.name ?? symbol,
+      score: finalScore,
+      bulls,
+      rating,
+      price,
+      changePct:  chart.changePct ?? null,
+      high52w,
+      low52w,
+      ath,
+      aboveMA200,
+      marketCap,
+      volume,
+      avgVolume,
+      sectorKey,
+
+      // Raw indicator values (for display)
+      epsGrowthFwd,        // decimal (e.g. 0.15 = 15%)
+      forwardPE,
+      fcfYield,            // decimal (e.g. 0.05 = 5%)
+      debtToEquity: debtEq, // ratio (e.g. 0.66)
+      rsi,
+
+      // Criterion scores
+      criteria: scores,
+    };
   } catch (e) {
     console.warn(`[Scanner] ${symbol}: ${e.message}`);
     return null;
   }
+}
+
+// ── Fetch Yahoo Finance fundamentals (quoteSummary) ──────────────────────────
+async function fetchYahooFundamentals(symbol) {
+  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=defaultKeyStatistics%2CfinancialData`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': UA, 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const ks = json?.quoteSummary?.result?.[0]?.defaultKeyStatistics ?? {};
+    const fd = json?.quoteSummary?.result?.[0]?.financialData ?? {};
+    return {
+      forwardEps:    ks.forwardEps?.raw    ?? null,
+      trailingEps:   ks.trailingEps?.raw   ?? null,
+      forwardPE:     ks.forwardPE?.raw     ?? null,
+      freeCashflow:  fd.freeCashflow?.raw  ?? null,
+      debtToEquity:  fd.debtToEquity?.raw  ?? null,  // Yahoo returns as % (e.g. 45.2 = 0.452 ratio)
+      marketCap:     ks.enterpriseValue?.raw ?? fd.marketCap?.raw ?? null,
+    };
+  } catch { return null; }
+}
+
+// ── Fetch Yahoo daily closes for RSI-14 ──────────────────────────────────────
+async function fetchDailyChart(symbol) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=3mo&interval=1d&includePrePost=false`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': UA },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? [];
+    return closes.filter(c => c != null);
+  } catch { return null; }
 }
 
 // ── Fetch Finnhub fundamental metrics ────────────────────────────────────────
@@ -960,59 +865,22 @@ async function fetchChart(symbol) {
       high52:    meta.fiftyTwoWeekHigh ?? null,
       low52:     meta.fiftyTwoWeekLow  ?? null,
       ath,
-      volume:    meta.regularMarketVolume ?? null,
-      avgVolume: meta.averageDailyVolume3Month ?? meta.averageDailyVolume10Day ?? null,
+      volume:     meta.regularMarketVolume ?? null,
+      avgVolume:  meta.averageDailyVolume3Month ?? meta.averageDailyVolume10Day ?? null,
+      epsForward: meta.epsForward ?? null,
+      trailingEps:meta.epsTrailingTwelveMonths ?? null,
+      marketCap:  meta.marketCap ?? null,
     };
   } catch { return null; }
 }
 
-// ── Scoring engine — exact mirror of scoring.js ───────────────────────────────
-// Family weights (identical to scoring.js)
-const FAMILY_WEIGHTS    = { growth: 0.35, valuation: 0.25, quality: 0.20, technical: 0.20 };
-const GROWTH_WEIGHTS    = { epsSurprise: 0.50, eps: 0.30, revenue: 0.20 };
-const VALUATION_WEIGHTS = { peg: 0.50, fcf: 0.30, pe: 0.20 };
-const QUALITY_WEIGHTS   = { operatingMargin: 0.35, insiderOwnership: 0.25, roe: 0.25, currentRatio: 0.15 };
-const TECHNICAL_WEIGHTS = { ma200: 0.40, distFromHigh: 0.25, macd: 0.20, rsi: 0.15 };
-
-const SECTOR_PE = {
-  technology: [15,25,40,60], financials: [8,12,18,25], energy: [8,12,18,25],
-  healthcare: [12,20,30,45], real_estate: [15,25,40,60], consumer: [12,18,28,40],
-  industrials: [12,18,25,35], communication: [12,20,35,55], utilities: [14,18,25,35],
-  materials: [10,15,22,30], default: [12,20,35,55],
-};
-
-const SECTOR_PB = {
-  technology:    [1, 3, 6, 12],
-  financials:    [0.8, 1.2, 2, 3.5],
-  energy:        [1, 1.5, 2.5, 4],
-  healthcare:    [2, 4, 7, 12],
-  real_estate:   [1, 1.5, 2.5, 4],
-  consumer:      [1.5, 3, 5, 8],
-  industrials:   [1.5, 2.5, 4, 7],
-  communication: [1.5, 3, 5, 9],
-  utilities:     [1, 1.5, 2.5, 4],
-  materials:     [1, 2, 3.5, 6],
-  default:       [1, 3, 6, 12],
-};
-
-const SECTOR_PS = {
-  technology:    [2, 5, 10, 20],
-  financials:    [1, 2, 4, 7],
-  energy:        [0.5, 1, 2, 3.5],
-  healthcare:    [1, 3, 6, 12],
-  real_estate:   [3, 6, 10, 16],
-  consumer:      [0.3, 0.8, 1.5, 3],
-  industrials:   [0.5, 1, 2, 3.5],
-  communication: [1, 3, 6, 10],
-  utilities:     [1, 2, 3.5, 5],
-  materials:     [0.5, 1, 2, 3.5],
-  default:       [1, 3, 6, 12],
-};
+// ── Scoring engine — 5-indicator system ──────────────────────────────────────
+const WEIGHTS = { epsGrowth: 0.30, forwardPE: 0.25, fcfYield: 0.20, debtEquity: 0.15, rsi: 0.10 };
 
 function getSectorKey(sector) {
   if (!sector) return 'default';
   const s = sector.toLowerCase();
-  if (s.includes('tech'))                       return 'technology';
+  if (s.includes('tech') || s.includes('semiconductor') || s.includes('software') || s.includes('internet') || s.includes('electronic')) return 'technology';
   if (s.includes('financ') || s.includes('bank') || s.includes('insur')) return 'financials';
   if (s.includes('energy'))                     return 'energy';
   if (s.includes('health'))                     return 'healthcare';
@@ -1034,9 +902,17 @@ function normalizeInverse(value, benchmarks) {
   return 5;
 }
 
-function normalizeLinear(value, min, max) {
+function normalizeLinear(value, min, low, high, max) {
+  // 2-threshold form: normalizeLinear(value, min, max)
+  if (high === undefined) { max = low; low = undefined; }
   if (value >= max) return 100;
   if (value <= min) return 0;
+  if (low !== undefined && high !== undefined) {
+    // 4-segment: terrible→bad→good→great
+    if (value <= low)  return ((value - min) / (low - min)) * 50;
+    if (value <= high) return 50 + ((value - low) / (high - low)) * 30;
+    return 80 + ((value - high) / (max - high)) * 20;
+  }
   return ((value - min) / (max - min)) * 100;
 }
 
@@ -1049,182 +925,84 @@ function wAvg(items) {
   return totalW > 0 ? sum / totalW : null;
 }
 
-// Individual scorers — exact copies from scoring.js
-function scoreEPS(v)        { return v == null ? null : normalizeLinear(v, -30, 40); }
-function scoreRevenue(v)    { return v == null ? null : normalizeLinear(v, -10, 30); }
-function scoreEPSSurprise(v){ return v == null ? null : normalizeLinear(v, -20, 20); }
+// ── Individual scorers ────────────────────────────────────────────────────────
 
-function scorePEG(peg) {
-  if (peg == null || peg <= 0) return null;
-  if (peg <= 0.5) return 100;
-  if (peg <= 1.0) return normalizeLinear(1.0 - peg, 0, 0.5) / 100 * 20 + 80;
-  if (peg <= 2.0) return normalizeLinear(2.0 - peg, 0, 1.0) / 100 * 40 + 40;
-  if (peg <= 4.0) return normalizeLinear(4.0 - peg, 0, 2.0) / 100 * 35 + 5;
-  return 5;
+// Forward EPS Growth scorer (sector-adjusted thresholds)
+function scoreEpsGrowthFwd(growth, sectorKey) {
+  if (growth == null) return null;
+  const benchmarks = {
+    technology:   [-10, 5, 15, 30],
+    financials:   [-5,  3, 10, 20],
+    healthcare:   [-5,  3, 10, 20],
+    energy:       [-15, 0, 8,  18],
+    real_estate:  [-10, 2, 8,  15],
+    consumer:     [-5,  3, 10, 18],
+    industrials:  [-5,  3, 10, 18],
+    utilities:    [-5,  2, 6,  12],
+    materials:    [-10, 2, 8,  15],
+    communication:[-5,  3, 10, 20],
+    default:      [-5,  3, 10, 20],
+  };
+  return normalizeLinear(growth * 100, ...(benchmarks[sectorKey] ?? benchmarks.default));
 }
 
-function scoreFCF(fcf, mc) {
-  if (fcf == null) return null;
-  if (fcf <= 0) return 10;
-  if (mc == null || mc <= 0) return 50;
-  return normalizeLinear((fcf / mc) * 100, 0, 10);
-}
-
-function scorePEonly(pe, sk) {
+// Forward P/E scorer (lower = better, sector-adjusted)
+function scoreForwardPE(pe, sectorKey) {
   if (pe == null || pe <= 0) return null;
-  return normalizeInverse(pe, SECTOR_PE[sk] || SECTOR_PE.default);
+  const benchmarks = {
+    technology:   [15, 25, 35, 50],
+    financials:   [8,  12, 18, 28],
+    healthcare:   [12, 20, 30, 45],
+    energy:       [8,  12, 18, 28],
+    real_estate:  [15, 25, 35, 50],
+    consumer:     [12, 18, 28, 40],
+    industrials:  [12, 18, 28, 40],
+    utilities:    [12, 18, 25, 35],
+    materials:    [10, 15, 22, 35],
+    communication:[12, 18, 28, 40],
+    default:      [12, 18, 28, 40],
+  };
+  return normalizeInverse(pe, benchmarks[sectorKey] ?? benchmarks.default);
 }
 
-function scoreOperatingMargin(om, sk) {
-  if (om == null) return null;
-  const hi = ['technology','healthcare','communication'];
-  const ex = hi.includes(sk) ? 30 : 20;
-  const gd = hi.includes(sk) ? 20 : 12;
-  const av = hi.includes(sk) ? 10 :  5;
-  if (om <= 0) return 5;
-  if (om >= ex) return 100;
-  if (om >= gd) return 70 + ((om - gd) / (ex - gd)) * 30;
-  if (om >= av) return 40 + ((om - av) / (gd - av)) * 30;
-  return 5 + (om / av) * 35;
+// FCF Yield scorer (higher = better)
+function scoreFCFYield(fcfYield) {
+  if (fcfYield == null) return null;
+  const pct = fcfYield * 100;
+  return normalizeLinear(pct, -2, 1, 4, 8);
 }
 
-function scoreInsiderOwnership(pct) {
-  if (pct == null) return null;
-  if (pct < 0.5) return 20; if (pct <= 5) return 55;
-  if (pct <= 15) return 75; if (pct <= 30) return 85;
-  if (pct <= 50) return 70; return 40;
+// Debt/Equity scorer (lower = better, sector-adjusted)
+// Finnhub returns D/E as ratio (e.g. 0.66), not percentage
+function scoreDebtEquityNew(de, sectorKey) {
+  if (de == null || de < 0) return null;
+  const ratio = de; // already a ratio
+  const benchmarks = {
+    technology:   [0, 0.3, 0.8,  1.5],
+    financials:   [0, 1,   3,    8  ],
+    healthcare:   [0, 0.3, 0.8,  1.5],
+    energy:       [0, 0.5, 1.2,  2.5],
+    real_estate:  [0, 1,   2,    4  ],
+    consumer:     [0, 0.5, 1.2,  2.5],
+    industrials:  [0, 0.5, 1.2,  2.5],
+    utilities:    [0, 1,   2.5,  5  ],
+    materials:    [0, 0.4, 1,    2  ],
+    communication:[0, 0.5, 1.5,  3  ],
+    default:      [0, 0.5, 1.2,  2.5],
+  };
+  return normalizeInverse(ratio, benchmarks[sectorKey] ?? benchmarks.default);
 }
 
-function scoreROE(roe) {
-  if (roe == null) return null;
-  if (roe < 0) return 5;
-  return normalizeLinear(roe, 0, 30);
-}
-
-function scoreCurrentRatio(cr) {
-  if (cr == null) return null;
-  if (cr >= 2.5) return 100; if (cr >= 2.0) return 85;
-  if (cr >= 1.5) return 70;  if (cr >= 1.0) return 45;
-  if (cr >= 0.5) return 20;  return 5;
-}
-
-function scoreMA200Position(price, ma200) {
-  if (price == null || ma200 == null || ma200 === 0) return null;
-  const pct = (price / ma200 - 1) * 100;
-  if (pct >= 20) return 90; if (pct >= 10) return 80;
-  if (pct >= 5)  return 70; if (pct >= 0)  return 60;
-  if (pct >= -5) return 40; if (pct >= -10) return 25;
-  if (pct >= -20) return 15; return 5;
-}
-
-function scoreDistFromHigh(price, high52w) {
-  if (price == null || high52w == null || high52w === 0) return null;
-  return normalizeInverse(((high52w - price) / high52w) * 100, [0, 10, 30, 50]);
-}
-
-function scoreShortFloat(pct) {
-  if (pct == null) return null;
-  if (pct <= 2) return 95; if (pct <= 5)  return 80;
-  if (pct <= 10) return 60; if (pct <= 15) return 40;
-  if (pct <= 25) return 20; return 5;
-}
-
-// MACD score: normalised to price so it's comparable across stocks
-// macd/price as % → bullish = high score, bearish = low score
-function scoreMACD(macd, price) {
-  if (macd == null || price == null || price === 0) return null;
-  const pct = (macd / price) * 100; // e.g. +2 = 2% above signal
-  if (pct >=  3) return 90;
-  if (pct >=  1) return 75;
-  if (pct >=  0) return 60;
-  if (pct >= -1) return 40;
-  if (pct >= -3) return 25;
-  return 10;
-}
-
-function scoreRSI(rsi) {
+// RSI-14 scorer (50-60 is ideal, overbought/oversold penalized)
+function scoreRSINew(rsi) {
   if (rsi == null) return null;
-  if (rsi < 30) return 70; if (rsi < 50) return 80;
-  if (rsi < 65) return 65; if (rsi < 75) return 35;
-  return 15;
-}
-
-function scoreMomentum(changePct, price, high52w, low52w) {
-  if (changePct == null) return null;
-  const dailyScore = normalizeLinear(changePct, -5, 5);
-  if (high52w == null || low52w == null || price == null) return dailyScore;
-  const range = high52w - low52w;
-  if (range === 0) return dailyScore;
-  const position = (price - low52w) / range;
-  return (dailyScore * 0.4 + position * 100 * 0.6);
-}
-
-function countHighs(closes, timestamps) {
-  if (!closes || !timestamps || closes.length < 2) return { y1: 0, y3: 0, y5: 0 };
-  const now = Date.now() / 1000;
-  const y1 = now - 365 * 86400;
-  const y3 = now - 3 * 365 * 86400;
-  const y5 = now - 5 * 365 * 86400;
-  let max = 0, h1 = 0, h3 = 0, h5 = 0;
-  for (let i = 0; i < closes.length; i++) {
-    const p = closes[i];
-    const t = timestamps[i];
-    if (p > max) {
-      max = p;
-      if (t >= y1) h1++;
-      if (t >= y3) h3++;
-      if (t >= y5) h5++;
-    }
+  if (rsi >= 30 && rsi <= 70) {
+    // Ideal range: peak at RSI=55
+    if (rsi <= 55) return Math.round(50 + (rsi - 30) * (50 / 25));
+    else return Math.round(100 - (rsi - 55) * (40 / 15));
   }
-  return { y1: h1, y3: h3, y5: h5 };
-}
-
-function scoreHighs(highsBroken) {
-  if (!highsBroken) return null;
-  const { y1 = 0, y3 = 0, y5 = 0 } = highsBroken;
-  return Math.min(100, (y1 * 20 + y3 * 10 + y5 * 5));
-}
-
-function scoreMultiples(pe, pb, ps, sectorKey) {
-  const scores = [];
-  if (pe != null && pe > 0) scores.push(normalizeInverse(pe, SECTOR_PE[sectorKey] || SECTOR_PE.default));
-  if (pb != null && pb > 0) scores.push(normalizeInverse(pb, SECTOR_PB[sectorKey] || SECTOR_PB.default));
-  if (ps != null && ps > 0) scores.push(normalizeInverse(ps, SECTOR_PS[sectorKey] || SECTOR_PS.default));
-  if (!scores.length) return null;
-  return scores.reduce((a, b) => a + b, 0) / scores.length;
-}
-
-function scoreDebt(debtEquity, sectorKey) {
-  if (debtEquity == null) return null;
-  const highDebtSectors = ['financials', 'real_estate', 'utilities'];
-  const max = highDebtSectors.includes(sectorKey) ? 10.0 : 2.0;
-  return Math.max(0, 100 - normalizeLinear(debtEquity, 0, max));
-}
-
-function scoreATH(price, high52w, ath) {
-  if (price == null || high52w == null) return null;
-  const distFrom52w = ((high52w - price) / high52w) * 100;
-  const fromHigh = normalizeInverse(distFrom52w, [0, 10, 30, 50]);
-  if (!ath || ath <= high52w) return fromHigh;
-  const distFromATH = ((ath - price) / ath) * 100;
-  const fromATH = normalizeInverse(distFromATH, [0, 15, 40, 65]);
-  return (fromHigh * 0.6 + fromATH * 0.4);
-}
-
-function calcEMA(closes, period) {
-  const k = 2 / (period + 1);
-  let ema = closes[0];
-  for (let i = 1; i < closes.length; i++) {
-    ema = closes[i] * k + ema * (1 - k);
-  }
-  return ema;
-}
-
-function calcMACD(closes) {
-  if (closes.length < 26) return null;
-  const ema12 = calcEMA(closes, 12);
-  const ema26 = calcEMA(closes, 26);
-  return ema12 - ema26;
+  if (rsi < 30) return Math.round(rsi * (50 / 30));  // oversold: low score
+  return Math.round(60 - (rsi - 70) * (55 / 30));    // overbought: declining score, floor at ~5
 }
 
 function calcSMA(closes, period) {

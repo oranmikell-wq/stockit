@@ -462,6 +462,18 @@ export const TRANSLATIONS = {
     criteriaRevenueGrowthLabel: 'צמיחת הכנסות (3Y CAGR)',
     criteriaDailyChange: 'שינוי יומי',
     criteria52wHigh: 'שיא כל הזמנים (ATH)',
+    // Bull rating + new 5-indicator criteria
+    bullRating: 'דירוג שוורים',
+    criteriaFwdEpsGrowth: 'צמיחת רווחים (Forward)',
+    criteriaFwdEpsGrowth_desc: 'שינוי צפוי ב-EPS לשנה הבאה ביחס ל-EPS הנוכחי. ציון גבוה = צמיחה משמעותית צפויה.',
+    criteriaForwardPE: 'מכפיל רווח עתידי (Forward P/E)',
+    criteriaForwardPE_desc: 'מחיר המניה ביחס לרווח הצפוי לשנה הבאה. מכפיל נמוך = מניה זולה יחסית לסקטור.',
+    criteriaFCFYield: 'תשואת תזרים מזומנים (FCF Yield)',
+    criteriaFCFYield_desc: 'תזרים מזומנים חופשי ביחס לשווי השוק. תשואה גבוהה = חברה מייצרת מזומן ביחס למחיר.',
+    criteriaDebtEquity: 'יחס חוב להון (D/E)',
+    criteriaDebtEquity_desc: 'חוב פיננסי ביחס להון העצמי. יחס נמוך = בריאות פיננסית טובה יותר.',
+    criteriaRSI: 'מדד עוצמה יחסית (RSI-14)',
+    criteriaRSI_desc: 'RSI מודד מומנטום מחיר. 30–70 = תקין. מעל 70 = קנוי יתר. מתחת 30 = מכור יתר.',
     // Movers error
     moversDataUnavailable: 'נתונים לא זמינים',
     // Sector names (for MarketMovers)
@@ -966,6 +978,18 @@ export const TRANSLATIONS = {
     criteriaRevenueGrowthLabel: 'Revenue Growth (3Y CAGR)',
     criteriaDailyChange: 'Daily Change',
     criteria52wHigh: 'ATH',
+    // Bull rating + new 5-indicator criteria
+    bullRating: 'Bull Rating',
+    criteriaFwdEpsGrowth: 'Earnings Growth (Forward)',
+    criteriaFwdEpsGrowth_desc: 'Expected change in EPS next year vs. current EPS. High score = strong growth expected.',
+    criteriaForwardPE: 'Forward P/E',
+    criteriaForwardPE_desc: 'Price relative to next year\'s expected earnings. Low multiple = cheap relative to sector.',
+    criteriaFCFYield: 'FCF Yield',
+    criteriaFCFYield_desc: 'Free cash flow as a percentage of market cap. High yield = company generates strong cash relative to price.',
+    criteriaDebtEquity: 'Debt/Equity',
+    criteriaDebtEquity_desc: 'Financial debt relative to equity. Low ratio = better financial health.',
+    criteriaRSI: 'RSI-14',
+    criteriaRSI_desc: 'RSI measures price momentum 0–100. 30–70 = healthy. Above 70 = overbought. Below 30 = oversold.',
     // Movers error
     moversDataUnavailable: 'Data unavailable',
     // Sector names (for MarketMovers)
