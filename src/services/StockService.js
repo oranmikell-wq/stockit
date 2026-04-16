@@ -94,8 +94,8 @@ async function fetchEdgarFundamentals(symbol, price) {
     const ps = (revActual && shares && shares > 0)          ? +(price / (revActual / shares)).toFixed(2)          : null;
     const revenueGrowth = (revActual && revPrevActual && revPrevActual !== 0)
       ? +((revActual - revPrevActual) / Math.abs(revPrevActual) * 100).toFixed(2) : null;
-    const epsGrowth = (eps && epsPrev && epsPrev !== 0)
-      ? +((eps - epsPrev) / Math.abs(epsPrev) * 100).toFixed(2) : null;
+    const epsGrowth = (eps && epsPrev && epsPrev > 0)
+      ? +((eps - epsPrev) / epsPrev * 100).toFixed(2) : null; // skip if base year was a loss
     const debtEquity = (debt != null && equity && equity !== 0)
       ? +(debt / equity).toFixed(4) : null;
     // FCF = Operating Cash Flow − CapEx

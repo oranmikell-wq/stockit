@@ -920,8 +920,8 @@ async function fetchEdgarFundamentals(symbol, price) {
     ]);
     const revActual     = rev  ?? rev2  ?? rev3  ?? null;
     const revPrevActual = revPrev ?? rev2Prev ?? null;
-    const epsGrowth = (eps && epsPrev && epsPrev !== 0)
-      ? (eps - epsPrev) / Math.abs(epsPrev) : null; // decimal
+    const epsGrowth = (eps && epsPrev && epsPrev > 0)
+      ? (eps - epsPrev) / epsPrev : null; // decimal — skip if base year was a loss
     const revenueGrowth = (revActual && revPrevActual && revPrevActual !== 0)
       ? (revActual - revPrevActual) / Math.abs(revPrevActual) : null; // decimal
     const debtEquity = (debt != null && equity && equity !== 0)
