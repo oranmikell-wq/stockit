@@ -144,8 +144,7 @@ const ALLOWED_HOSTS = [
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const KV_KEY          = 'top-picks-v9';      // v9: full fundamentals + criteria scores
-const KV_SCORES_KEY   = 'all-scores-v3';     // v3: added FMP PEG + Short Float
-const KV_STATE_KEY    = 'scan-state-v1';     // rolling scan offset
+const KV_SCORES_KEY   = 'all-scores-v4';     // v4: state embedded inside (no separate scan-state key)
 const KV_UNIVERSE_KEY = 'sp500-universe-v1'; // live S&P 500 list from FMP
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -167,8 +166,10 @@ export default {
       if (url.searchParams.get('run') === '1' && url.searchParams.get('secret') === runSecret && runSecret) {
         // Reset state and run first chunk immediately
         ctx.waitUntil((async () => {
-          // Reset offset to 0 — next cron run will fetch fresh universe from FMP
-          await env.TOP_PICKS_KV.put(KV_STATE_KEY, JSON.stringify({ offset: 0 }), { expirationTtl: 60 * 60 * 72 });
+          // Reset offset to 0 — embed into all-scores so next cron starts fresh
+          const currentScores = (await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' })) ?? {};
+          currentScores._state = { offset: 0 };
+          await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(currentScores), { expirationTtl: 60 * 60 * 72 });
           await runRollingScan(env);
         })());
         return new Response(JSON.stringify({ status: 'rolling scan reset — fresh FMP universe on next run' }), {
@@ -208,14 +209,7 @@ export default {
         });
       }
       try {
-        const allScores = await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' });
-        const entry = allScores?.[sym] ?? null;
-        if (entry) {
-          return new Response(JSON.stringify(entry), {
-            headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' },
-          });
-        }
-        // Not in KV — score on-demand and cache for 6 hours
+        // Always compute fresh (non-scan mode) — ensures full insider/EDGAR data
         const computed = await scoreStock(sym, env);
         if (!computed) {
           return new Response(JSON.stringify({ notFound: true }), {
@@ -223,14 +217,6 @@ export default {
           });
         }
         const result = { ...computed, scannedAt: new Date().toISOString() };
-        // Cache it: update allScores map
-        ctx.waitUntil((async () => {
-          try {
-            const scores = (await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' })) ?? {};
-            scores[sym] = result;
-            await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(scores), { expirationTtl: 60 * 60 * 72 });
-          } catch {}
-        })());
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' },
         });
@@ -415,18 +401,15 @@ const SCAN_PER_RUN = 10;
 async function runRollingScan(env) {
   const TTL = 60 * 60 * 72;
 
-  const state = (await env.TOP_PICKS_KV.get(KV_STATE_KEY, { type: 'json' })) ?? { offset: 0 };
-  let offset = typeof state.offset === 'number' ? state.offset : 0;
+  // ── Read state and scores from a single KV key (_state embedded) ──────────
+  const stored = (await env.TOP_PICKS_KV.get(KV_SCORES_KEY, { type: 'json' })) ?? {};
+  let offset = typeof stored._state?.offset === 'number' ? stored._state.offset : 0;
 
   let universe;
   let allScores;
 
   if (offset === 0) {
     // ── New cycle: fetch live universe, start with CLEAN scores in memory ──
-    // NOTE: We do NOT write {} to KV here — writing and immediately reading
-    // back would return stale data due to ~50s KV propagation delay.
-    // Instead we start with {} in memory and overwrite KV with the first
-    // batch of scored stocks (written below), which naturally resets it.
     const fresh = await fetchSP500Universe();
     if (fresh && fresh.length >= 100) {
       universe = fresh;
@@ -436,17 +419,17 @@ async function runRollingScan(env) {
       universe = SP500_UNIVERSE;
       console.log(`[Scanner] iShares unavailable — fallback to static list (${universe.length} stocks).`);
     }
-    allScores = {}; // clean slate in memory
+    allScores = {}; // clean slate — _state will be written below after first chunk
   } else {
-    universe   = (await env.TOP_PICKS_KV.get(KV_UNIVERSE_KEY, { type: 'json' })) ?? SP500_UNIVERSE;
-    allScores  = (await env.TOP_PICKS_KV.get(KV_SCORES_KEY,   { type: 'json' })) ?? {};
+    universe  = (await env.TOP_PICKS_KV.get(KV_UNIVERSE_KEY, { type: 'json' })) ?? SP500_UNIVERSE;
+    // Exclude _state from stock scores
+    const { _state: _, ...stockScores } = stored;
+    allScores = stockScores;
   }
 
   const chunk = universe.slice(offset, offset + SCAN_PER_RUN);
 
   // ── Edge case: offset past end of universe ─────────────────────────────────
-  // This can happen if the universe shrank between runs. Write whatever
-  // scores we have as top-picks so the cycle doesn't end silently.
   if (!chunk.length) {
     const allResults = Object.values(allScores).filter(r => r.score != null);
     if (allResults.length > 0) {
@@ -458,7 +441,8 @@ async function runRollingScan(env) {
       }), { expirationTtl: TTL });
       console.log(`[Scanner] Edge reset — wrote top picks from ${allResults.length} scores.`);
     }
-    await env.TOP_PICKS_KV.put(KV_STATE_KEY, JSON.stringify({ offset: 0 }), { expirationTtl: TTL });
+    // Reset: write empty scores with state offset=0 (single write)
+    await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify({ _state: { offset: 0 } }), { expirationTtl: TTL });
     return;
   }
 
@@ -470,22 +454,22 @@ async function runRollingScan(env) {
     } catch {}
   }
 
-  // Write scores — at offset=0 this naturally overwrites any stale KV data
-  await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify(allScores), { expirationTtl: TTL });
-
   const nextOffset = offset + chunk.length;
+
   if (nextOffset >= universe.length) {
-    // ── Cycle complete — publish top picks and reset ───────────────────────
+    // ── Cycle complete — publish top picks, reset state ───────────────────
     const allResults = Object.values(allScores).filter(r => r.score != null);
     allResults.sort((a, b) => b.score - a.score);
+    // Single write: scores with state reset to 0
+    await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify({ _state: { offset: 0 }, ...allScores }), { expirationTtl: TTL });
     await env.TOP_PICKS_KV.put(KV_KEY, JSON.stringify({
       picks: allResults.slice(0, 20), scannedAt: now,
       universe: universe.length, scored: allResults.length,
     }), { expirationTtl: TTL });
-    await env.TOP_PICKS_KV.put(KV_STATE_KEY, JSON.stringify({ offset: 0 }), { expirationTtl: TTL });
     console.log(`[Scanner] Cycle complete. Scored ${allResults.length}/${universe.length}.`);
   } else {
-    await env.TOP_PICKS_KV.put(KV_STATE_KEY, JSON.stringify({ offset: nextOffset }), { expirationTtl: TTL });
+    // Single write: scores + updated offset
+    await env.TOP_PICKS_KV.put(KV_SCORES_KEY, JSON.stringify({ _state: { offset: nextOffset }, ...allScores }), { expirationTtl: TTL });
     console.log(`[Scanner] offset ${offset}→${nextOffset} / ${universe.length}.`);
   }
 }
@@ -1029,7 +1013,7 @@ function getSectorKey(sector) {
   if (!sector) return 'default';
   const s = sector.toLowerCase();
   if (s.includes('tech'))                       return 'technology';
-  if (s.includes('financ') || s.includes('bank')) return 'financials';
+  if (s.includes('financ') || s.includes('bank') || s.includes('insur')) return 'financials';
   if (s.includes('energy'))                     return 'energy';
   if (s.includes('health'))                     return 'healthcare';
   if (s.includes('real estate'))                return 'real_estate';

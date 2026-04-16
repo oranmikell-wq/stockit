@@ -12,6 +12,7 @@ mode = "smart"
 binding = "TOP_PICKS_KV"
 id = "a43c22764cb748c1858abca757cd2213"
 
-# Cron: run every minute — rolling scan of ~10 stocks per run → full 500-stock scan in ~50 minutes
+# Cron: run every 2 minutes — rolling scan of ~10 stocks per run → full 500-stock scan in ~1.7 hours
+# KV writes: ~720/day (well under 1,000 free tier limit with combined state+scores key)
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/2 * * * *"]
