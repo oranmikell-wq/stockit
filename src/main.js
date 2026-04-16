@@ -682,7 +682,9 @@ async function loadResults(symbol, isRefresh = false) {
 
       // Criteria Table (5-indicator system)
       lastResultsData = data;
+      console.log('[BT] FAST PATH: renderCriteriaTable called, container:', !!document.getElementById('criteria-table'), 'criteria:', JSON.stringify(scored.criteria));
       renderCriteriaTable(scored, data);
+      console.log('[BT] FAST PATH: renderCriteriaTable done, rows:', document.getElementById('criteria-table')?.querySelectorAll('.criteria-row').length);
       initInfoButtons(document.getElementById('page-results'));
 
       // AI Insight — runs async, silently hides itself on error
