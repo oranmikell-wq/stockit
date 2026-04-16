@@ -622,6 +622,10 @@ async function loadResults(symbol, isRefresh = false) {
     const workerScore = await fetchWorkerScore(symbol);
     const hasFullWorkerData = workerScore?.criteria != null && workerScore?.score != null;
 
+    window.__btFastPath = SP500_SET.has(symbol.toUpperCase()) && hasFullWorkerData;
+    window.__btHasFullWorker = hasFullWorkerData;
+    window.__btInSP500 = SP500_SET.has(symbol.toUpperCase());
+
     if (SP500_SET.has(symbol.toUpperCase()) && hasFullWorkerData) {
       // ── FAST PATH: Worker has all data ──────────────────────────────────────
       const [liveQuoteResult, fullStockData] = await Promise.all([
@@ -629,7 +633,8 @@ async function loadResults(symbol, isRefresh = false) {
         fetchStockFullData(symbol).catch(() => null),
       ]);
 
-      if (!isCurrent()) return;
+      window.__btIsCurrentAfterFetch = isCurrent();
+      if (!isCurrent()) { window.__btAbortedAt = 'isCurrent after fetchAllData'; return; }
 
       const liveData  = liveQuoteResult?.data;
       const liveQuote = liveData ? { price: liveData.price, changePct: liveData.changePct } : null;
@@ -682,9 +687,14 @@ async function loadResults(symbol, isRefresh = false) {
 
       // Criteria Table (5-indicator system)
       lastResultsData = data;
-      console.log('[BT] FAST PATH: renderCriteriaTable called, container:', !!document.getElementById('criteria-table'), 'criteria:', JSON.stringify(scored.criteria));
-      renderCriteriaTable(scored, data);
-      console.log('[BT] FAST PATH: renderCriteriaTable done, rows:', document.getElementById('criteria-table')?.querySelectorAll('.criteria-row').length);
+      window.__btReachedCriteria = true;
+      window.__btCriteriaKeys = Object.keys(scored.criteria || {});
+      try {
+        renderCriteriaTable(scored, data);
+        window.__btCriteriaRows = document.getElementById('criteria-table')?.querySelectorAll('.criteria-row').length;
+      } catch(e) {
+        window.__btCriteriaError = e.message + ' ' + e.stack?.split('\n')[1];
+      }
       initInfoButtons(document.getElementById('page-results'));
 
       // AI Insight — runs async, silently hides itself on error
