@@ -104,6 +104,7 @@ let activeLoadSymbol = null; // tracks the latest requested symbol to cancel sta
 let activeLoadId = 0;       // increments on every search; async ops check this before writing DOM
 let lastFullStockData  = null;   // stored for lang-change re-render
 let lastSummaryScored  = null;   // stored for lang-change re-render
+let lastResultsData    = null;   // stored for lang-change re-render of CriteriaTable
 
 // ── Notification ───────────────────────────────────────
 let notifTimer = null;
@@ -439,18 +440,9 @@ window.__onLangChange = function() {
       renderSummaryGauge(summaryContainer, lastSummaryScored);
     }
 
-    // Re-render analysis tables on language change
-    const fundamentalEl = document.getElementById('analysis-fundamental-section');
-    const technicalEl   = document.getElementById('analysis-technical-section');
-    if ((fundamentalEl || technicalEl) && lastFullStockData !== undefined && lastSummaryScored) {
-      renderAnalysisTables(
-        fundamentalEl,
-        technicalEl,
-        lastSummaryScored,
-        currentStock,
-        lastFullStockData?.history ?? [],
-        lastFullStockData?.indicators ?? null,
-      );
+    // Re-render criteria table on language change
+    if (lastSummaryScored && lastResultsData) {
+      renderCriteriaTable(lastSummaryScored, lastResultsData);
       initInfoButtons(document.getElementById('page-results'));
     }
   }
@@ -688,21 +680,10 @@ async function loadResults(symbol, isRefresh = false) {
       loadChart(symbol, '1M');
       updateWatchlistBtn(symbol);
 
-      // Analysis Tables (Fundamental + Technical)
-      const fundamentalEl = document.getElementById('analysis-fundamental-section');
-      const technicalEl   = document.getElementById('analysis-technical-section');
-      if (fundamentalEl || technicalEl) {
-        renderAnalysisTables(
-          fundamentalEl,
-          technicalEl,
-          scored,
-          data,
-          fullStockData?.history ?? [],
-          fullStockData?.indicators ?? null,
-          isCurrent,
-        );
-        initInfoButtons(document.getElementById('page-results'));
-      }
+      // Criteria Table (5-indicator system)
+      lastResultsData = data;
+      renderCriteriaTable(scored, data);
+      initInfoButtons(document.getElementById('page-results'));
 
       // AI Insight — runs async, silently hides itself on error
       if (isCurrent()) renderAIInsight(newsItems, symbol, isCurrent);
@@ -804,21 +785,10 @@ async function loadResults(symbol, isRefresh = false) {
       loadChart(symbol, '1M');
       updateWatchlistBtn(symbol);
 
-      // Analysis Tables (Fundamental + Technical) — async, fills SPY row after initial render
-      const fundamentalEl = document.getElementById('analysis-fundamental-section');
-      const technicalEl   = document.getElementById('analysis-technical-section');
-      if (fundamentalEl || technicalEl) {
-        renderAnalysisTables(
-          fundamentalEl,
-          technicalEl,
-          scored,
-          data,
-          fullStockData?.history ?? [],
-          fullStockData?.indicators ?? null,
-          isCurrent,
-        );
-        initInfoButtons(document.getElementById('page-results'));
-      }
+      // Criteria Table (5-indicator system)
+      lastResultsData = data;
+      renderCriteriaTable(scored, data);
+      initInfoButtons(document.getElementById('page-results'));
 
       // AI Insight — runs async, silently hides itself on error
       if (isCurrent()) renderAIInsight(data.newsItems, symbol, isCurrent);
