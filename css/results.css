@@ -529,7 +529,8 @@
 }
 .criteria-row:last-child { border-bottom: none; }
 .criteria-row-header { display: flex; align-items: center; gap: 8px; }
-.criteria-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--text); }
+.criteria-name { font-size: 13px; font-weight: 500; color: var(--text); }
+.criteria-context { flex: 1; font-size: 11px; color: var(--text-3); text-align: end; }
 .criteria-bar-wrap { margin-top: 6px; height: 4px; background: var(--bg-3); border-radius: 2px; overflow: hidden; }
 .criteria-bar { height: 100%; border-radius: 2px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
 .criteria-inline-desc { font-size: 11px; color: var(--text-3); margin-top: 6px; line-height: 1.5; }

@@ -18,7 +18,7 @@ import { fetchAllData, fetchHistory, fetchStockFullData, fetchIndexQuote, fetchP
 import { calcScore } from './utils/scoring.js';
 import { renderSummaryGauge } from './components/SummaryGauge.js?v=2';
 
-import { renderCriteriaTable } from './components/CriteriaTable.js?v=2';
+import { renderCriteriaTable } from './components/CriteriaTable.js?v=3';
 import { renderStrategyChecklist, countNewHighs } from './components/StrategyChecklist.js';
 import { renderAnalysisTables } from './components/AnalysisTables.js';
 import { renderNews, renderAIInsight } from './components/NewsRenderer.js';
