@@ -98,20 +98,13 @@ function buildGaugeSVG() {
   arc.style.strokeDashoffset = DASHLEN;
   svg.appendChild(arc);
 
-  // ── Scale labels: emoji icons instead of numbers ──
-  const scaleLabels = [
-    { text: '🐻', x: CX - R - 14, y: CY + 16, anchor: 'start',  size: '14' },
-    { text: '😐',  x: CX,          y: CY-R-14, anchor: 'middle', size: '14' },
-    { text: '🐂',  x: CX + R + 14, y: CY + 16, anchor: 'end',    size: '14' },
-  ];
-  for (const { text, x, y, anchor, size } of scaleLabels) {
-    const lbl = el('text', {
-      x, y, 'text-anchor': anchor, 'font-size': size,
-      'font-family': 'Inter, Rubik, sans-serif',
-    });
-    lbl.textContent = text;
-    svg.appendChild(lbl);
-  }
+  // ── Scale label: single bull emoji at right end of arc (score 100) ──
+  const bullLabel = el('text', {
+    x: CX + R + 2, y: CY + 20, 'text-anchor': 'middle', 'font-size': '18',
+    'font-family': 'Inter, Rubik, sans-serif',
+  });
+  bullLabel.textContent = '🐂';
+  svg.appendChild(bullLabel);
 
   // ── Zone labels: Bearish / Neutral / Bullish ──
   const zoneData = [

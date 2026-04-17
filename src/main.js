@@ -1,5 +1,14 @@
 // main.js — entry point, orchestrates all modules
 
+function scoreToBulls(score) {
+  if (score == null) return null;
+  if (score >= 81) return 5;
+  if (score >= 61) return 4;
+  if (score >= 41) return 3;
+  if (score >= 21) return 2;
+  return 1;
+}
+
 const WORKER_SCORE_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/score';
 
 async function fetchWorkerScore(symbol) {
@@ -16,7 +25,7 @@ async function fetchWorkerScore(symbol) {
 import { applyTranslations, toggleLang, t } from './utils/i18n.js?v=7';
 import { fetchAllData, fetchHistory, fetchStockFullData, fetchIndexQuote, fetchProxy, fetchProxyRaw } from './services/StockService.js';
 import { calcScore } from './utils/scoring.js';
-import { renderSummaryGauge } from './components/SummaryGauge.js?v=3';
+import { renderSummaryGauge } from './components/SummaryGauge.js?v=4';
 
 import { renderCriteriaTable } from './components/CriteriaTable.js?v=4';
 import { renderStrategyChecklist, countNewHighs } from './components/StrategyChecklist.js';
@@ -727,7 +736,7 @@ async function loadResults(symbol, isRefresh = false) {
       // If Worker has a score (even partial), use it as the authoritative score + families
       if (workerScore?.score != null) {
         scored.score  = workerScore.score;
-        scored.bulls  = workerScore.bulls ?? null;
+        scored.bulls  = workerScore.bulls ?? scoreToBulls(workerScore.score);
         scored.rating = workerScore.rating;
         if (workerScore.families) {
           scored.families = workerScore.families;
@@ -745,6 +754,9 @@ async function loadResults(symbol, isRefresh = false) {
         data.debtToEquity = workerScore.debtToEquity ?? null;
         data.rsi          = workerScore.rsi          ?? null;
       }
+
+      // Always derive bulls from score if not provided by worker
+      if (scored.bulls == null) scored.bulls = scoreToBulls(scored.score);
 
       currentStock = { ...data, ...scored };
 
