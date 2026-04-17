@@ -143,20 +143,16 @@ let _popularCacheTs = 0;
 
 async function loadPopularPicks() {
   if (_popularCache && Date.now() - _popularCacheTs < POPULAR_TTL) return _popularCache;
+  let symbols = null;
   try {
     const res = await fetch(POPULAR_WORKER_URL, { signal: AbortSignal.timeout(6000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    if (json?.picks?.length) {
-      _popularCacheTs = Date.now();
-      _popularCache = json.picks;
-      return _popularCache;
-    }
+    if (json?.picks?.length) symbols = json.picks.map(p => p.symbol ?? p).filter(Boolean);
   } catch {}
-  // Fallback: static list if worker unavailable or volume not yet scanned
-  const FALLBACK = ['AAPL','TSLA','NVDA','AMZN','META','GOOGL','MSFT','NFLX','AMD','PLTR'];
+  if (!symbols?.length) symbols = ['AAPL','TSLA','NVDA','AMZN','META','GOOGL','MSFT','NFLX','AMD','PLTR'];
   _popularCacheTs = Date.now();
-  _popularCache = await loadSymbolPicks(FALLBACK);
+  _popularCache = await loadSymbolPicks(symbols);
   return _popularCache;
 }
 

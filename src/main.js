@@ -24,7 +24,7 @@ import { renderAnalysisTables } from './components/AnalysisTables.js';
 import { renderNews, renderAIInsight } from './components/NewsRenderer.js';
 import { loadFearGreed, loadCryptoFearGreed } from './components/FearGreedGauge.js?v=2';
 import { loadTrending, renderTrendingList }   from './components/TrendingList.js';
-import { renderTopPicks } from './components/TopPicks.js?v=11';
+import { renderTopPicks } from './components/TopPicks.js?v=12';
 import { loadAAII }      from './components/AAIISentiment.js';
 import { loadMacroData, loadCryptoPrices, loadUpcomingEvents } from './components/MacroCrypto.js?v=7';
 import { renderMarketStatus, loadDXY, loadCommodities, loadSectorPerformance, loadMovers } from './components/MarketMovers.js?v=1';
@@ -835,18 +835,6 @@ function renderResults(data, scored) {
   if (gaugeLabel) { gaugeLabel.textContent = t(scored.rating); gaugeLabel.className = `gauge-label badge-${scored.rating}`; }
   if (partialWarn) partialWarn.classList.toggle('hidden', !scored.isPartial);
 
-  // Bull rating display
-  const bullRatingEl = document.getElementById('bull-rating');
-  if (bullRatingEl) {
-    const bulls = scored.bulls ?? null;
-    if (bulls != null) {
-      bullRatingEl.textContent = '🐂'.repeat(bulls);
-      bullRatingEl.title = `${t('bullRating')}: ${bulls}/5`;
-      bullRatingEl.classList.remove('hidden');
-    } else {
-      bullRatingEl.classList.add('hidden');
-    }
-  }
 
   const fmt = (n, dec = 2) => { const num = parseFloat(n); return !isNaN(num) ? num.toFixed(dec) : t('noData'); };
   const currency = data.currency || 'USD';
