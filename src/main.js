@@ -2,10 +2,10 @@
 
 function scoreToBulls(score) {
   if (score == null) return null;
-  if (score >= 81) return 5;
-  if (score >= 61) return 4;
-  if (score >= 41) return 3;
-  if (score >= 21) return 2;
+  if (score >= 90) return 5;
+  if (score >= 70) return 4;
+  if (score >= 50) return 3;
+  if (score >= 30) return 2;
   return 1;
 }
 
@@ -736,7 +736,7 @@ async function loadResults(symbol, isRefresh = false) {
       // If Worker has a score (even partial), use it as the authoritative score + families
       if (workerScore?.score != null) {
         scored.score  = workerScore.score;
-        scored.bulls  = workerScore.bulls ?? scoreToBulls(workerScore.score);
+        scored.bulls  = scoreToBulls(workerScore.score);
         scored.rating = workerScore.rating;
         if (workerScore.families) {
           scored.families = workerScore.families;
