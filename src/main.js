@@ -638,6 +638,21 @@ async function loadResults(symbol, isRefresh = false) {
       const data   = buildDataFromWorker(workerScore, liveQuote, newsItems);
       const scored = buildScoredFromWorker(workerScore);
 
+      // Overlay live Yahoo data into the worker-built data object (fast path)
+      if (liveData) {
+        if (liveData.beta        != null) data.beta        = liveData.beta;
+        if (liveData.dividend    != null) data.dividend    = liveData.dividend;
+        if (liveData.earningsDate!= null) data.earningsDate= liveData.earningsDate;
+        if (liveData.targetMean  != null) data.targetMean  = liveData.targetMean;
+        if (liveData.targetHigh  != null) data.targetHigh  = liveData.targetHigh;
+        if (liveData.targetLow   != null) data.targetLow   = liveData.targetLow;
+        if (liveData.analystScore!= null) data.analystScore= liveData.analystScore;
+        if (liveData.analystMean != null) data.analystMean = liveData.analystMean;
+        if (liveData.analystCount!= null) data.analystCount= liveData.analystCount;
+        if (liveData.instPct     != null) data.instPct     = liveData.instPct;
+        if (liveData.marketCap   != null) data.marketCap   = liveData.marketCap;
+      }
+
       currentStock = { ...data, ...scored };
 
       renderResults(data, scored);

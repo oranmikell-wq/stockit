@@ -241,7 +241,10 @@ function renderRow(pick) {
   const shortName = pick.name?.length > 22
     ? pick.name.slice(0, 20) + '…' : (pick.name ?? pick.symbol);
 
-  const scoreTxt = pick.score != null ? pick.score : '-';
+  const bulls = pick.score != null
+    ? (pick.score >= 81 ? 5 : pick.score >= 61 ? 4 : pick.score >= 41 ? 3 : pick.score >= 21 ? 2 : 1)
+    : null;
+  const scoreTxt = bulls != null ? '🐂'.repeat(bulls) : '-';
   const inWL     = isInWatchlist(pick.symbol);
 
   const tr = document.createElement('tr');

@@ -165,17 +165,24 @@ function buildGaugeSVG() {
 
 function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
 
-function animateGauge(svg, targetScore, duration = 1300) {
+function animateGauge(svg, targetScore, bulls, duration = 1300) {
   if (targetScore == null) return;
   const arc       = svg.querySelector('#sg-arc');
   const needle    = svg.querySelector('#sg-needle');
   const scoreText = svg.querySelector('#sg-score-text');
   if (!arc || !needle || !scoreText) return;
 
+  // Show bull emoji immediately (static); needle + arc animate
+  if (bulls != null) {
+    scoreText.textContent = '🐂'.repeat(bulls);
+    scoreText.setAttribute('font-size', bulls >= 4 ? '20' : '22');
+    scoreText.setAttribute('y', CY - 18);
+    scoreText.setAttribute('fill', scoreToColor(targetScore));
+  }
+
   let startTime = null;
 
   function frame(ts) {
-    // If tab is hidden, pause and resume when visible to avoid throttled RAF
     if (document.hidden) {
       startTime = null;
       document.addEventListener('visibilitychange', () => {
@@ -190,20 +197,20 @@ function animateGauge(svg, targetScore, duration = 1300) {
     const current  = targetScore * eased;
     const color    = scoreToColor(current);
 
-    // Arc: fill from left based on current score
     arc.style.strokeDashoffset = DASHLEN * (1 - current / 100);
     arc.setAttribute('stroke', color);
 
-    // Needle rotation
     const pt = pointOnArc(current, 85);
     needle.setAttribute('x2', pt.x);
     needle.setAttribute('y2', pt.y);
 
-    // Score count-up + color
-    scoreText.textContent = Math.round(current);
-    scoreText.setAttribute('fill', color);
+    if (bulls == null) {
+      scoreText.textContent = Math.round(current);
+      scoreText.setAttribute('fill', color);
+    } else {
+      scoreText.setAttribute('fill', color);
+    }
 
-    // Subtle glow that doesn't overwhelm the zone color
     const glowSize    = Math.round(3 + eased * 6);
     const glowOpacity = (0.15 + eased * 0.20).toFixed(2);
     const glowColor   = color.replace('rgb(', 'rgba(').replace(')', `,${glowOpacity})`);
@@ -322,11 +329,10 @@ export function renderSummaryGauge(container, scored) {
   }
 
   body.appendChild(svgWrap);
-  body.appendChild(buildBreakdown(families));
   card.appendChild(body);
   container.appendChild(card);
 
-  requestAnimationFrame(() => animateGauge(svg, score ?? 0));
+  requestAnimationFrame(() => animateGauge(svg, score ?? 0, scored?.bulls ?? null));
 
   initInfoButtons(card);
 }

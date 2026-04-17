@@ -532,23 +532,15 @@
 .criteria-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--text); }
 .criteria-bar-wrap { margin-top: 6px; height: 4px; background: var(--bg-3); border-radius: 2px; overflow: hidden; }
 .criteria-bar { height: 100%; border-radius: 2px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
-.criteria-desc { display: none; }
-.criteria-row.expanded .criteria-desc { display: block; font-size: 12px; color: var(--text-2); margin-top: 8px; }
-
-.criteria-data {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.criteria-data-item {
-  background: var(--bg-3);
-  padding: 3px 9px;
-  border-radius: var(--radius-sm);
+.criteria-inline-desc { font-size: 11px; color: var(--text-3); margin-top: 6px; line-height: 1.5; }
+.criteria-value-chip {
   font-size: 11px;
+  font-weight: 600;
   color: var(--text-2);
-  font-weight: 500;
+  background: var(--bg-3);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
 }
 
 /* ===== NEWS ===== */
@@ -764,14 +756,13 @@
 /* ── Body ─────────────────────────────────────────────── */
 .sg-body {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  justify-content: center;
 }
 
 /* ── SVG container ───────────────────────────────────── */
 .sg-svg-wrap {
   flex: 0 0 auto;
-  width: 210px;
+  width: 220px;
   text-align: center;
 }
 

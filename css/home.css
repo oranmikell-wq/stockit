@@ -1589,18 +1589,19 @@
 .tp-td-num  { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-2); font-size: 12px; direction: ltr; unicode-bidi: embed; }
 .tp-td-center { text-align: center; }
 
-/* Score badge */
+/* Score badge — now shows bull emoji */
 .tp-badge {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 13px;
   border-radius: 20px;
-  padding: 2px 8px;
+  padding: 2px 6px;
   white-space: nowrap;
   display: inline-block;
+  background: transparent;
+  letter-spacing: -1px;
 }
-.tp-badge-buy  { background: rgba(34,197,94,0.15);  color: #22c55e; }
-.tp-badge-wait { background: rgba(245,158,11,0.15); color: #f59e0b; }
-.tp-badge-sell { background: rgba(220,38,38,0.15);  color: #ef4444; }
+.tp-badge-buy  {}
+.tp-badge-wait {}
+.tp-badge-sell {}
 
 /* Change colors */
 .tp-chg-up   { color: #22c55e; font-weight: 600; }
