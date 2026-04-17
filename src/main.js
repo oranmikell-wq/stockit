@@ -16,7 +16,7 @@ async function fetchWorkerScore(symbol) {
 import { applyTranslations, toggleLang, t } from './utils/i18n.js?v=6';
 import { fetchAllData, fetchHistory, fetchStockFullData, fetchIndexQuote, fetchProxy, fetchProxyRaw } from './services/StockService.js';
 import { calcScore } from './utils/scoring.js';
-import { renderSummaryGauge } from './components/SummaryGauge.js?v=2';
+import { renderSummaryGauge } from './components/SummaryGauge.js?v=3';
 
 import { renderCriteriaTable } from './components/CriteriaTable.js?v=3';
 import { renderStrategyChecklist, countNewHighs } from './components/StrategyChecklist.js';
@@ -31,7 +31,7 @@ import { renderMarketStatus, loadDXY, loadCommodities, loadSectorPerformance, lo
 import { loadMarketBreadth, loadEarningsCalendar, loadShortInterest, loadPutCallRatio } from './components/MarketExtras.js';
 import { loadMag7Chart } from './components/Mag7Chart.js';
 import { initInfoButtons } from './components/InfoPopup.js';
-import { renderCompanyCard } from './components/CompanyCard.js';
+import { renderCompanyCard } from './components/CompanyCard.js?v=2';
 import { showAutocomplete, hideAutocomplete, selectAutocomplete, confirmAutocomplete, showRecentSearches, initAutocomplete } from './components/Autocomplete.js';
 import { initChart, loadChart, updateChartTheme } from './components/Chart.js';
 import {

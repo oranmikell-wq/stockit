@@ -32,6 +32,12 @@ export function renderCompanyCard(container, data) {
     website   ? `<div class="cc-stat"><span class="cc-stat-label">${t('cc_website')}</span><a class="cc-stat-val cc-link" href="${website}" target="_blank" rel="noopener">${fmtDomain(website)}</a></div>` : '',
   ].filter(Boolean).join('');
 
+  // Hide entirely when no meaningful content
+  if (!chips && !stats && !description) {
+    container.innerHTML = '';
+    return;
+  }
+
   const descHtml = description
     ? `<p class="cc-desc" id="cc-desc-text">${description}</p>
        <button class="cc-toggle" id="cc-toggle" onclick="

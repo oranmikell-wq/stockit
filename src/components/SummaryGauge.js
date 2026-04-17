@@ -98,19 +98,19 @@ function buildGaugeSVG() {
   arc.style.strokeDashoffset = DASHLEN;
   svg.appendChild(arc);
 
-  // ── Scale labels: 0 / 50 / 100 ──
+  // ── Scale labels: emoji icons instead of numbers ──
   const scaleLabels = [
-    { s: 0,   text: '0',    x: CX - R - 18, y: CY + 16, anchor: 'start'  },
-    { s: 50,  text: '50',   x: CX,          y: CY-R-12, anchor: 'middle' },
-    { s: 100, text: '100',  x: CX + R + 18, y: CY + 16, anchor: 'end'    },
+    { text: '🐻', x: CX - R - 14, y: CY + 16, anchor: 'start',  size: '14' },
+    { text: '😐',  x: CX,          y: CY-R-14, anchor: 'middle', size: '14' },
+    { text: '🐂',  x: CX + R + 14, y: CY + 16, anchor: 'end',    size: '14' },
   ];
-  for (const { text, x, y, anchor } of scaleLabels) {
-    const t = el('text', {
-      x, y, 'text-anchor': anchor, 'font-size': '10',
-      'font-family': 'Inter, Rubik, sans-serif', fill: 'var(--sg-label)',
+  for (const { text, x, y, anchor, size } of scaleLabels) {
+    const lbl = el('text', {
+      x, y, 'text-anchor': anchor, 'font-size': size,
+      'font-family': 'Inter, Rubik, sans-serif',
     });
-    t.textContent = text;
-    svg.appendChild(t);
+    lbl.textContent = text;
+    svg.appendChild(lbl);
   }
 
   // ── Zone labels: Bearish / Neutral / Bullish ──

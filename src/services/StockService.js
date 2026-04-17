@@ -753,7 +753,8 @@ export function parseAllData({ meta, yfFund, stats, ratings, target, earning, ne
 
   const marketCap = yfSum.marketCap?.raw ?? yfSum.marketCap
                  ?? yfPrice.marketCap?.raw ?? yfPrice.marketCap
-                 ?? val.market_capitalization ?? null;
+                 ?? val.market_capitalization
+                 ?? meta?.marketCap ?? null;
   const pe        = yfSum.trailingPE?.raw        ?? yfSum.trailingPE        ?? val.trailing_pe            ?? null;
   const pb        = yfSum.priceToBook?.raw       ?? yfSum.priceToBook       ?? val.price_to_book_mrq     ?? null;
   const ps        = yfDef.priceToSalesTrailing12Months?.raw
