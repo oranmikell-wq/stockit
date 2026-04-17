@@ -13,12 +13,12 @@ async function fetchWorkerScore(symbol) {
   } catch { return null; }
 }
 
-import { applyTranslations, toggleLang, t } from './utils/i18n.js?v=6';
+import { applyTranslations, toggleLang, t } from './utils/i18n.js?v=7';
 import { fetchAllData, fetchHistory, fetchStockFullData, fetchIndexQuote, fetchProxy, fetchProxyRaw } from './services/StockService.js';
 import { calcScore } from './utils/scoring.js';
 import { renderSummaryGauge } from './components/SummaryGauge.js?v=3';
 
-import { renderCriteriaTable } from './components/CriteriaTable.js?v=3';
+import { renderCriteriaTable } from './components/CriteriaTable.js?v=4';
 import { renderStrategyChecklist, countNewHighs } from './components/StrategyChecklist.js';
 import { renderAnalysisTables } from './components/AnalysisTables.js';
 import { renderNews, renderAIInsight } from './components/NewsRenderer.js';

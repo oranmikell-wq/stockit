@@ -129,6 +129,10 @@ buyornot/
 |--------|------|-----------|
 | [TradingView Lightweight Charts](https://github.com/tradingview/lightweight-charts) | גרפי מחיר | CDN, Apache 2.0 |
 
+## Work Process Rules
+
+- **לאחר כל שינוי — לבדוק בכרום שהכל עובד לפני שמסיימים.** להשתמש ב-MCP של כרום (screenshot, navigate, read_page) כדי לאמת שהשינויים נראים ומתפקדים כמצופה.
+
 ## Key Conventions
 
 - כל ה-API calls דרך corsproxy.io (CORS) או allorigins.win כ-fallback

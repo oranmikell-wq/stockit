@@ -1,6 +1,6 @@
 // CriteriaTable.js — renders the 5-indicator criteria breakdown table
 
-import { t, getCurrentLang } from '../utils/i18n.js?v=6';
+import { t, getCurrentLang } from '../utils/i18n.js?v=7';
 import { initInfoButtons } from './InfoPopup.js';
 
 function fmtPct(val, decimals = 1) {
@@ -45,7 +45,7 @@ function buildContext(key, score, data) {
   }
 
   if (key === 'debtEquity') {
-    const de = data.debtToEquity != null ? fmtNum(data.debtToEquity / 100, 2) : null;
+    const de = data.debtToEquity != null ? fmtNum(data.debtToEquity, 2) : null;
     if (de == null) return null;
     if (score >= 66) return isHe ? `חוב/הון ${de} — חוב נמוך מאוד` : `D/E ${de} — very low debt`;
     if (score >= 41) return isHe ? `חוב/הון ${de} — חוב סביר` : `D/E ${de} — manageable debt`;
