@@ -16,15 +16,15 @@ async function fetchWorkerScore(symbol) {
 import { applyTranslations, toggleLang, t } from './utils/i18n.js?v=6';
 import { fetchAllData, fetchHistory, fetchStockFullData, fetchIndexQuote, fetchProxy, fetchProxyRaw } from './services/StockService.js';
 import { calcScore } from './utils/scoring.js';
-import { renderSummaryGauge } from './components/SummaryGauge.js';
+import { renderSummaryGauge } from './components/SummaryGauge.js?v=2';
 
-import { renderCriteriaTable } from './components/CriteriaTable.js';
+import { renderCriteriaTable } from './components/CriteriaTable.js?v=2';
 import { renderStrategyChecklist, countNewHighs } from './components/StrategyChecklist.js';
 import { renderAnalysisTables } from './components/AnalysisTables.js';
 import { renderNews, renderAIInsight } from './components/NewsRenderer.js';
 import { loadFearGreed, loadCryptoFearGreed } from './components/FearGreedGauge.js?v=2';
 import { loadTrending, renderTrendingList }   from './components/TrendingList.js';
-import { renderTopPicks } from './components/TopPicks.js?v=10';
+import { renderTopPicks } from './components/TopPicks.js?v=11';
 import { loadAAII }      from './components/AAIISentiment.js';
 import { loadMacroData, loadCryptoPrices, loadUpcomingEvents } from './components/MacroCrypto.js?v=7';
 import { renderMarketStatus, loadDXY, loadCommodities, loadSectorPerformance, loadMovers } from './components/MarketMovers.js?v=1';
