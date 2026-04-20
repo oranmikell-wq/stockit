@@ -1,6 +1,6 @@
 // Service Worker — Bull Therapy PWA
 // Bump version on every deploy so users always get fresh files
-const CACHE = 'bull-therapy-v17';
+const CACHE = 'bull-therapy-v18';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
