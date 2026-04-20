@@ -10,7 +10,7 @@ import { isInWatchlist, addToWatchlist, removeFromWatchlist } from './Watchlist.
 const WORKER_URL        = 'https://bulltherapy-proxy.oranmikell.workers.dev/top-picks';
 const WORKER_SCORE_URL  = 'https://bulltherapy-proxy.oranmikell.workers.dev/score';
 const WORKER_SCORES_URL = 'https://bulltherapy-proxy.oranmikell.workers.dev/scores';
-const PICKS_KEY  = 'bon-toppicks-v10';
+const PICKS_KEY  = 'bon-toppicks-v11';
 const PICKS_TTL  = 60 * 60 * 1000; // 1 hour
 
 async function fetchWorkerScore(symbol) {
@@ -60,6 +60,27 @@ async function fetchWorkerPicks() {
   const json = await res.json();
   if (!json?.picks?.length) throw new Error('No picks in response');
   return { picks: json.picks.slice(0, 10), scannedAt: json.scannedAt ?? null };
+}
+
+// ── Refresh live price + changePct for a picks array ─────────────────────────
+async function refreshLivePrices(picks) {
+  try {
+    const liveResults = await Promise.allSettled(
+      picks.map(p => fetchAllData(p.symbol, true))
+    );
+    return picks.map((pick, i) => {
+      const data = liveResults[i].status === 'fulfilled' ? liveResults[i].value?.data : null;
+      if (!data) return pick;
+      return {
+        ...pick,
+        price:     data.price     ?? pick.price,
+        changePct: data.changePct ?? pick.changePct,
+        ath:       data.high52w   ?? pick.ath,
+        marketCap: data.marketCap ?? pick.marketCap,
+        name:      data.name      ?? pick.name,
+      };
+    });
+  } catch { return picks; }
 }
 
 // ── Local fallback ────────────────────────────────────────────────────────────
@@ -384,6 +405,12 @@ export async function renderTopPicks(container) {
     setScannedAt(scannedAt);
     topPicksData = picks;
     fillTbody(picks, tbody);
+
+    // Refresh live price / changePct in background (worker data may be stale)
+    refreshLivePrices(picks).then(livePicks => {
+      topPicksData = livePicks;
+      if (btnPicks.classList.contains('active')) fillTbody(livePicks, tbody);
+    });
   } catch {
     tbody.innerHTML = `<tr><td colspan="9" class="tp-no-data">${t('noData')}</td></tr>`;
   }
