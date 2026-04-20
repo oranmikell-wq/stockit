@@ -767,6 +767,16 @@
   text-align: center;
 }
 
+.sg-bull-scale {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10px;
+  margin-top: -4px;
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.85;
+}
+
 .sg-svg {
   width: 100%;
   height: auto;

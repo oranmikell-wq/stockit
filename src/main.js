@@ -25,7 +25,7 @@ async function fetchWorkerScore(symbol) {
 import { applyTranslations, toggleLang, t } from './utils/i18n.js?v=7';
 import { fetchAllData, fetchHistory, fetchStockFullData, fetchIndexQuote, fetchProxy, fetchProxyRaw } from './services/StockService.js';
 import { calcScore } from './utils/scoring.js';
-import { renderSummaryGauge } from './components/SummaryGauge.js?v=8';
+import { renderSummaryGauge } from './components/SummaryGauge.js?v=9';
 
 import { renderCriteriaTable } from './components/CriteriaTable.js?v=4';
 import { renderStrategyChecklist, countNewHighs } from './components/StrategyChecklist.js';

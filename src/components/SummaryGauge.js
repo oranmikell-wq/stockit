@@ -98,21 +98,6 @@ function buildGaugeSVG() {
   arc.style.strokeDashoffset = DASHLEN;
   svg.appendChild(arc);
 
-  // ── Scale labels: bull emojis at left/mid/right of arc ──
-  const scaleEmojis = [
-    { pct: 0,   text: '🐂',           r: R + 18 },
-    { pct: 50,  text: '🐂🐂🐂',       r: R + 18 },
-    { pct: 100, text: '🐂🐂🐂🐂🐂', r: R + 18 },
-  ];
-  for (const { pct, text, r } of scaleEmojis) {
-    const pt = pointOnArc(pct, r);
-    const lbl = el('text', {
-      x: pt.x, y: pt.y + 6, 'text-anchor': 'middle', 'font-size': '15',
-      'font-family': 'Inter, Rubik, sans-serif',
-    });
-    lbl.textContent = text;
-    svg.appendChild(lbl);
-  }
 
   // ── Zone labels: Bearish / Neutral / Bullish ──
   const zoneData = [
@@ -328,6 +313,12 @@ export function renderSummaryGauge(container, scored) {
     na.textContent = t('notEnoughData');
     svgWrap.appendChild(na);
   }
+
+  // ── Bull emoji scale: HTML row below gauge ──
+  const scale = document.createElement('div');
+  scale.className = 'sg-bull-scale';
+  scale.innerHTML = '<span>🐂</span><span>🐂🐂🐂</span><span>🐂🐂🐂🐂🐂</span>';
+  svgWrap.appendChild(scale);
 
   body.appendChild(svgWrap);
   card.appendChild(body);
