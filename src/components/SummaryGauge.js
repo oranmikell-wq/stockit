@@ -98,29 +98,20 @@ function buildGaugeSVG() {
   arc.style.strokeDashoffset = DASHLEN;
   svg.appendChild(arc);
 
-  // ── Scale label: single bull emoji at right end of arc (score 100) ──
-  const bullLabel = el('text', {
-    x: CX + R + 2, y: CY + 20, 'text-anchor': 'middle', 'font-size': '18',
-    'font-family': 'Inter, Rubik, sans-serif',
-  });
-  bullLabel.textContent = '🐂';
-  svg.appendChild(bullLabel);
-
-  // ── Zone labels: Bearish / Neutral / Bullish ──
-  const zoneData = [
-    { pct: 20, text: t('zone_bearish') },
-    { pct: 53, text: t('zone_neutral') },
-    { pct: 83, text: t('zone_bullish') },
+  // ── Scale labels: bull emojis at left/mid/right of arc ──
+  const scaleEmojis = [
+    { pct: 0,   text: '🐂',           anchor: 'middle', r: R + 18 },
+    { pct: 50,  text: '🐂🐂🐂',       anchor: 'middle', r: R + 18 },
+    { pct: 100, text: '🐂🐂🐂🐂🐂', anchor: 'middle', r: R + 18 },
   ];
-  for (const { pct, text } of zoneData) {
-    const pt = pointOnArc(pct, R - 32);
-    const zt = el('text', {
-      x: pt.x, y: pt.y, 'text-anchor': 'middle', 'font-size': '8.5',
-      'font-weight': '600', 'font-family': 'Inter, Rubik, sans-serif',
-      fill: 'var(--sg-zone)',
+  for (const { pct, text, anchor, r } of scaleEmojis) {
+    const pt = pointOnArc(pct, r);
+    const lbl = el('text', {
+      x: pt.x, y: pt.y + 6, 'text-anchor': anchor, 'font-size': '11',
+      'font-family': 'Inter, Rubik, sans-serif',
     });
-    zt.textContent = text;
-    svg.appendChild(zt);
+    lbl.textContent = text;
+    svg.appendChild(lbl);
   }
 
   // ── Needle ──
