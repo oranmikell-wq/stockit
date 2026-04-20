@@ -1,6 +1,6 @@
 // SummaryGauge.js — Animated SVG speedometer gauge
 
-import { t } from '../utils/i18n.js?v=6';
+import { t } from '../utils/i18n.js?v=7';
 import { initInfoButtons } from './InfoPopup.js';
 
 // ── SVG geometry constants ────────────────────────────────
@@ -106,7 +106,7 @@ function buildGaugeSVG() {
   ];
   for (const { text, x, y, anchor } of bullScale) {
     const lbl = el('text', {
-      x, y, 'text-anchor': anchor, 'font-size': '10',
+      x, y, 'text-anchor': anchor, 'font-size': '13',
       'font-family': 'Inter, Rubik, sans-serif',
     });
     lbl.textContent = text;

@@ -35,3 +35,9 @@ yarn-error.log*
 .cache/
 .parcel-cache/
 .eslintcache
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example

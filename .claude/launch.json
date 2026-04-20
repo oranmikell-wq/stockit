@@ -2,11 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "BuyorNot (Python)",
-      "runtimeExecutable": "/usr/bin/python3",
-      "runtimeArgs": ["-m", "http.server", "3001"],
-      "cwd": "/Users/oranmikel/Downloads/newapp",
-      "port": 3001
+      "name": "Frontend (Python)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["serve.py", "3000"],
+      "port": 3000
     }
   ]
 }
