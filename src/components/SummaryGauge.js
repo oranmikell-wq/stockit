@@ -107,7 +107,7 @@ function buildGaugeSVG() {
   for (const { pct, text, r } of scaleEmojis) {
     const pt = pointOnArc(pct, r);
     const lbl = el('text', {
-      x: pt.x, y: pt.y + 6, 'text-anchor': 'middle', 'font-size': '11',
+      x: pt.x, y: pt.y + 6, 'text-anchor': 'middle', 'font-size': '15',
       'font-family': 'Inter, Rubik, sans-serif',
     });
     lbl.textContent = text;
